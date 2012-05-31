@@ -107,6 +107,8 @@ case "$host" in
 	DYN_LIB_EXT="so"
 esac
 
+CFLAGS="$CFLAGS -std=c99"
+
 cat << EOF
 
 ${PACKAGE} has been configured with following options:
