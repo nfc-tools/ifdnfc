@@ -24,7 +24,7 @@ PKG_PROG_PKG_CONFIG
 
 
 # Checks for libraries.
-PKG_CHECK_EXISTS([libnfc >= 1.3.9],
+PKG_CHECK_EXISTS([libnfc >= 1.6.0],
                  [PKG_CHECK_MODULES([LIBNFC], [libnfc >= 1.3.9])],
                  [AC_MSG_WARN([libnfc >= 1.3.9 not found by pkg-config])])
 PKG_CHECK_EXISTS([libpcsclite > 1.4.102],

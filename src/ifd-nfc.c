@@ -27,56 +27,32 @@
 
 struct nfc_slot {
     bool present;
-    nfc_target_t nt;
+    nfc_target nt;
     unsigned char atr[MAX_ATR_SIZE];
     size_t atrlen;
 };
 
 static struct nfc_slot ifd_slot;
-static nfc_device_t *ifd_device;
+static nfc_device *ifd_device;
 static bool active;
 
 #define release_return(code) { release(&ifd_device, &ifd_slot); return code; }
 
 #define NFC_MAX_DEVICE_COUNT 4
 
-static const char str_NM_ISO14443A_106[]  = "ISO14443-A (NXP MIFARE)";
-static const char str_NM_FELICA_424[]     = "JIS X 6319-4 (Sony Felica)";
-static const char str_NM_ISO14443B_106[]  = "ISO14443-B";
-static const char str_NM_JEWEL_106[]   = "Jewel Topaz";
-static const char str_NM_ACTIVE_DEP[]  = "DEP";
-static const char str_unknown[]           = "unknown";
-static const char *str_modulation(nfc_modulation_t m) {
-    switch (m.nmt) {
-        case NMT_ISO14443A:
-            return str_NM_ISO14443A_106;
-        case NMT_FELICA:
-            return str_NM_FELICA_424;
-        case NMT_ISO14443B:
-            return str_NM_ISO14443B_106;
-        case NMT_JEWEL:
-            return str_NM_JEWEL_106;
-        case NMT_DEP:
-            return str_NM_ACTIVE_DEP;
-        default:
-            return str_unknown;
-    }
-}
-
-static const nfc_modulation_t ct_modulations[] = {
+static const nfc_modulation ct_modulations[] = {
     { NMT_ISO14443A, NBR_106 },
-    { NMT_ISO14443B, NBR_106 },
 };
 
-static void release(nfc_device_t **device, struct nfc_slot *slot)
+static void release(nfc_device **device, struct nfc_slot *slot)
 {
     if (device && *device) {
         if (slot && slot->present && !nfc_initiator_deselect_target(*device))
             Log3(PCSC_LOG_ERROR, "Could not disconnect from %s (%s).",
-                    str_modulation(slot->nt.nm),
+                    str_nfc_modulation_type (slot->nt.nm.nmt),
                     nfc_strerror(*device));
 
-        nfc_disconnect(*device);
+        nfc_close(*device);
 
         slot->present = false;
         *device = NULL;
@@ -125,40 +101,39 @@ static bool get_slot_atr(const struct nfc_slot *nslot,
     return true;
 }
 
-static bool get_device(nfc_device_t **device)
+static bool get_device(nfc_device **device)
 {
     if (!device)
         return false;
     if (*device)
         return true;
 
-    *device = nfc_connect(NULL);
+    nfc_init (NULL);
+    *device = nfc_open(NULL, NULL);
     if (!*device) {
         Log1(PCSC_LOG_ERROR, "Could not connect to NFC device");
         return false;
     }
 
-    if (!nfc_initiator_init(*device)
-            || !nfc_configure(ifd_device, NDO_HANDLE_CRC, true)
-            || !nfc_configure(ifd_device, NDO_HANDLE_PARITY, true)) {
-        Log4(PCSC_LOG_ERROR, "Could not initialize %.*s as reader (%s).",
-                DEVICE_NAME_LENGTH, (*device)->acName, nfc_strerror(*device));
+    if (nfc_initiator_init(*device) < 0) {
+        Log3(PCSC_LOG_ERROR, "Could not initialize \"%s\" as reader (%s).",
+                nfc_device_get_name(*device), nfc_strerror(*device));
         return false;
     }
 
-    if (!nfc_configure(*device, NDO_INFINITE_SELECT, false))
+    if (nfc_device_set_property_bool (*device, NP_INFINITE_SELECT, false) < 0)
         Log2(PCSC_LOG_ERROR,
                 "Could not deactivate infinite polling for targets (%s)."
                 " This might block the application sometimes...",
                 nfc_strerror(*device));
 
-    Log3(PCSC_LOG_INFO, "Connected to %.*s.",
-                DEVICE_NAME_LENGTH, (*device)->acName);
+    Log2(PCSC_LOG_INFO, "Connected to \"%s\".",
+                nfc_device_get_name(*device));
 
     return true;
 }
 
-static bool get_target(nfc_device_t *device, struct nfc_slot *slot)
+static bool get_target(nfc_device *device, struct nfc_slot *slot)
 {
     if (!slot)
         return false;
@@ -172,13 +147,13 @@ static bool get_target(nfc_device_t *device, struct nfc_slot *slot)
     for (i = 0; i < sizeof(ct_modulations); i++) {
         ifd_slot.atrlen = sizeof(ifd_slot.atr);
 
-        if (nfc_initiator_select_passive_target(device, ct_modulations[i], NULL, 0,
-                    &slot->nt)
+        if ((nfc_initiator_select_passive_target(device, ct_modulations[i], NULL, 0,
+                    &slot->nt) == 1)
                 && get_slot_atr(&ifd_slot, ifd_slot.atr, &ifd_slot.atrlen)) {
             slot->present = true;
 
             Log2(PCSC_LOG_INFO, "Connected to %s.",
-                    str_modulation(slot->nt.nm));
+                    str_nfc_modulation_type(slot->nt.nm.nmt));
 
             return true;
         }
@@ -221,9 +196,9 @@ IFDHCreateChannel (DWORD Lun, DWORD Channel)
 RESPONSECODE
 IFDHCloseChannel(DWORD Lun)
 {
-    /* nfc_configure doesn't check ifd_device... */
+    /* nfc_device_set_property_bool doesn't check ifd_device... */
     if (ifd_device)
-        if (!nfc_configure(ifd_device, NDO_ACTIVATE_FIELD, false))
+        if (!nfc_device_set_property_bool(ifd_device, NP_ACTIVATE_FIELD, false))
             Log2(PCSC_LOG_ERROR, "Could not deactivate NFC field (%s).",
                     nfc_strerror(ifd_device));
 
@@ -298,7 +273,7 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
             *AtrLength = 0;
 
 #endif
-            if (!nfc_configure(ifd_device, NDO_ACTIVATE_FIELD, false)) {
+            if (nfc_device_set_property_bool(ifd_device, NP_ACTIVATE_FIELD, false) < 0) {
                 Log2(PCSC_LOG_ERROR, "Could not deactivate NFC field (%s).",
                         nfc_strerror(ifd_device));
                 release_return(IFD_ERROR_POWER_ACTION);
@@ -311,7 +286,7 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
             if (!get_device(&ifd_device))
                 release_return(IFD_COMMUNICATION_ERROR);
 
-            if (!nfc_configure(ifd_device, NDO_ACTIVATE_FIELD, true)) {
+            if (nfc_device_set_property_bool(ifd_device, NP_ACTIVATE_FIELD, true) < 0) {
                 Log2(PCSC_LOG_ERROR, "Could not activate NFC field (%s).",
                         nfc_strerror(ifd_device));
                 *AtrLength = 0;
@@ -350,16 +325,16 @@ IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
     LogXxd(PCSC_LOG_INFO, "Sending to NFC target\n", TxBuffer, TxLength);
 
     size_t tl = TxLength, rl = *RxLength;
-
-    if(!nfc_initiator_transceive_bytes(ifd_device, TxBuffer, tl,
-                RxBuffer, &rl)) {
+    int res;
+    if((res = nfc_initiator_transceive_bytes(ifd_device, TxBuffer, tl,
+                RxBuffer, rl, -1)) < 0) {
         Log2(PCSC_LOG_ERROR, "Could not transceive data (%s).",
                 nfc_strerror(ifd_device));
         *RxLength = 0;
         release_return(IFD_COMMUNICATION_ERROR);
     }
 
-    *RxLength = rl;
+    *RxLength = res;
     RecvPci->Protocol = 1;
 
     LogXxd(PCSC_LOG_INFO, "Received from NFC target\n", RxBuffer, *RxLength);
