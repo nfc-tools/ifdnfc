@@ -27,9 +27,9 @@
 
 struct nfc_slot {
     bool present;
-    nfc_target nt;
+    nfc_target target;
     unsigned char atr[MAX_ATR_SIZE];
-    size_t atrlen;
+    size_t atr_len;
 };
 
 static struct nfc_slot ifd_slot;
@@ -49,7 +49,7 @@ static void release(nfc_device **device, struct nfc_slot *slot)
     if (device && *device) {
         if (slot && slot->present && !nfc_initiator_deselect_target(*device))
             Log3(PCSC_LOG_ERROR, "Could not disconnect from %s (%s).",
-                    str_nfc_modulation_type (slot->nt.nm.nmt),
+                    str_nfc_modulation_type (slot->target.nm.nmt),
                     nfc_strerror(*device));
 
         nfc_close(*device);
@@ -62,13 +62,14 @@ static void release(nfc_device **device, struct nfc_slot *slot)
 static bool get_slot_atr(const struct nfc_slot *nslot,
         unsigned char *atr, size_t *atr_len)
 {
+    (void) atr;
     unsigned char atqb[12];
 
-    switch (nslot->nt.nm.nmt) {
+    switch (nslot->target.nm.nmt) {
         case NMT_ISO14443A:
             /* libnfc already strips TL and CRC1/CRC2 */
             if (!get_atr(ATR_ISO14443A_106,
-                    nslot->nt.nti.nai.abtAts, nslot->nt.nti.nai.szAtsLen,
+                    nslot->target.nti.nai.abtAts, nslot->target.nti.nai.szAtsLen,
                     (unsigned char *) nslot->atr, atr_len)) {
                 return false;
             }
@@ -78,13 +79,13 @@ static bool get_slot_atr(const struct nfc_slot *nslot,
             atqb[0] = 0x50;
 
             // Store the PUPI (Pseudo-Unique PICC Identifier)
-            memcpy (&atqb[1], nslot->nt.nti.nbi.abtPupi, 4);
+            memcpy (&atqb[1], nslot->target.nti.nbi.abtPupi, 4);
 
             // Store the Application Data
-            memcpy (&atqb[5], nslot->nt.nti.nbi.abtApplicationData, 4);
+            memcpy (&atqb[5], nslot->target.nti.nbi.abtApplicationData, 4);
 
             // Store the Protocol Info
-            memcpy (&atqb[9], nslot->nt.nti.nbi.abtProtocolInfo, 3);
+            memcpy (&atqb[9], nslot->target.nti.nbi.abtProtocolInfo, 3);
 
             if (!get_atr(ATR_ISO14443A_106, atqb, sizeof(atqb),
                         (unsigned char *) nslot->atr, atr_len))
@@ -143,22 +144,28 @@ static bool get_target(nfc_device *device, struct nfc_slot *slot)
     if (!slot)
         return false;
 
-    if (slot->present)
+    if (slot->present) {
+        if (nfc_initiator_target_is_present(device, slot->target) < 0) {
+            Log2(PCSC_LOG_INFO, "Connection lost with %s.",
+                    str_nfc_modulation_type(slot->target.nm.nmt));
+            slot->present = false;
+            return false;
+        }
         return true;
-
-    int i;
+    }
 
     /* find new connection */
+    size_t i;
     for (i = 0; i < sizeof(ct_modulations); i++) {
-        ifd_slot.atrlen = sizeof(ifd_slot.atr);
+        ifd_slot.atr_len = sizeof(ifd_slot.atr);
 
         if ((nfc_initiator_select_passive_target(device, ct_modulations[i], NULL, 0,
-                    &slot->nt) == 1)
-                && get_slot_atr(&ifd_slot, ifd_slot.atr, &ifd_slot.atrlen)) {
+                    &slot->target) == 1)
+                && get_slot_atr(&ifd_slot, ifd_slot.atr, &ifd_slot.atr_len)) {
             slot->present = true;
 
             Log2(PCSC_LOG_INFO, "Connected to %s.",
-                    str_nfc_modulation_type(slot->nt.nm.nmt));
+                    str_nfc_modulation_type(slot->target.nm.nmt));
 
             return true;
         }
@@ -224,11 +231,11 @@ IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
             if (!get_device(&ifd_device)
                     || !get_target(ifd_device, &ifd_slot))
                 release_return(IFD_COMMUNICATION_ERROR);
-            if (*Length < ifd_slot.atrlen)
+            if (*Length < ifd_slot.atr_len)
                 return IFD_COMMUNICATION_ERROR;
 
-            memcpy(Value, ifd_slot.atr, ifd_slot.atrlen);
-            *Length = ifd_slot.atrlen;
+            memcpy(Value, ifd_slot.atr, ifd_slot.atr_len);
+            *Length = ifd_slot.atr_len;
             break;
         case TAG_IFD_SLOTS_NUMBER:
             if (*Length < 1)
@@ -305,12 +312,12 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 
     if (!get_target(ifd_device, &ifd_slot))
         release_return(IFD_COMMUNICATION_ERROR);
-    if (*AtrLength < ifd_slot.atrlen)
+    if (*AtrLength < ifd_slot.atr_len)
         return IFD_COMMUNICATION_ERROR;
 
-    memcpy(Atr, ifd_slot.atr, ifd_slot.atrlen);
-    memset(Atr + ifd_slot.atrlen, 0, *AtrLength - ifd_slot.atrlen);
-    *AtrLength = ifd_slot.atrlen;
+    memcpy(Atr, ifd_slot.atr, ifd_slot.atr_len);
+    memset(Atr + ifd_slot.atr_len, 0, *AtrLength - ifd_slot.atr_len);
+    *AtrLength = ifd_slot.atr_len;
 
     return IFD_SUCCESS;
 }
