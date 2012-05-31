@@ -7,8 +7,8 @@ libifdnfc_la_CFLAGS = $(LIBNFC_CFLAGS) $(PCSC_CFLAGS)
 
 bin_PROGRAMS = ifdnfc-activate
 ifdnfc_activate_SOURCES = ifdnfc-activate.c
-ifdnfc_activate_LDADD = $(PCSC_LIBS)
-ifdnfc_activate_CFLAGS = $(PCSC_CFLAGS)
+ifdnfc_activate_LDADD = $(LIBNFC_LIBS) $(PCSC_LIBS)
+ifdnfc_activate_CFLAGS = $(LIBNFC_CFLAGS) $(PCSC_CFLAGS)
 
 noinst_HEADERS = ifd-nfc.h atr.h
 

@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 struct nfc_slot {
     bool present;
@@ -35,6 +36,8 @@ struct nfc_slot {
 static struct nfc_slot ifd_slot;
 static nfc_device *ifd_device;
 static bool active;
+
+static nfc_connstring ifd_connstring;
 
 #define release_return(code) { release(&ifd_device, &ifd_slot); return code; }
 
@@ -115,7 +118,7 @@ static bool get_device(nfc_device **device)
         return true;
 
     nfc_init (NULL);
-    *device = nfc_open(NULL, NULL);
+    *device = nfc_open(NULL, ifd_connstring);
     if (!*device) {
         Log1(PCSC_LOG_ERROR, "Could not connect to NFC device");
         return false;
@@ -183,6 +186,7 @@ static bool get_target(nfc_device *device, struct nfc_slot *slot)
 RESPONSECODE
 IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
 {
+    (void) Lun;
     ifd_slot.present = false;
     ifd_device = NULL;
     active = false;
@@ -208,6 +212,7 @@ IFDHCreateChannel (DWORD Lun, DWORD Channel)
 RESPONSECODE
 IFDHCloseChannel(DWORD Lun)
 {
+    (void) Lun;
     /* nfc_device_set_property_bool doesn't check ifd_device... */
     if (ifd_device)
         if (!nfc_device_set_property_bool(ifd_device, NP_ACTIVATE_FIELD, false))
@@ -220,6 +225,7 @@ IFDHCloseChannel(DWORD Lun)
 RESPONSECODE
 IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
 {
+    (void) Lun;
     if (!active || !Length || !Value)
         return IFD_COMMUNICATION_ERROR;
 
@@ -256,6 +262,10 @@ IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
 RESPONSECODE
 IFDHSetCapabilities(DWORD Lun, DWORD Tag, DWORD Length, PUCHAR Value)
 {
+    (void) Lun;
+    (void) Tag;
+    (void) Length;
+    (void) Value;
     return IFD_ERROR_VALUE_READ_ONLY;
 }
 
@@ -263,6 +273,11 @@ RESPONSECODE
 IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol, UCHAR Flags, UCHAR PTS1,
         UCHAR PTS2, UCHAR PTS3)
 {
+    (void) Lun;
+    (void) Flags;
+    (void) PTS1;
+    (void) PTS2;
+    (void) PTS3;
     if (Protocol != SCARD_PROTOCOL_T1)
         return IFD_PROTOCOL_NOT_SUPPORTED;
 
@@ -272,6 +287,7 @@ IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol, UCHAR Flags, UCHAR PTS1,
 RESPONSECODE
 IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 {
+    (void) Lun;
     if (!active || !Atr || !AtrLength)
         return IFD_COMMUNICATION_ERROR;
 
@@ -326,6 +342,8 @@ RESPONSECODE
 IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
         TxLength, PUCHAR RxBuffer, PDWORD RxLength, PSCARD_IO_HEADER RecvPci)
 {
+    (void) Lun;
+    (void) SendPci;
     if (!RxLength || !RecvPci)
         return IFD_COMMUNICATION_ERROR;
 
@@ -357,6 +375,7 @@ IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
 RESPONSECODE
 IFDHICCPresence(DWORD Lun)
 {
+    (void) Lun;
     if (!active)
         return IFD_ICC_NOT_PRESENT;
 
@@ -372,17 +391,30 @@ RESPONSECODE
 IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
         PUCHAR RxBuffer, DWORD RxLength, LPDWORD pdwBytesReturned)
 {
+    (void) Lun;
     if (pdwBytesReturned)
         *pdwBytesReturned = 0;
 
     switch(dwControlCode) {
         case IFDNFC_CTRL_ACTIVE:
-            if (TxLength != 1 || !TxBuffer || RxLength < 1 || !RxBuffer)
+            if (TxLength < 1 || !TxBuffer || RxLength < 1 || !RxBuffer)
                 return IFD_COMMUNICATION_ERROR;
 
             switch (*TxBuffer) {
                 case IFDNFC_SET_ACTIVE:
+                {
+                    uint16_t u16ConnstringLength;
+                    Log2 (PCSC_LOG_DEBUG, "ifdnfc: TxLength=%lu", TxLength);
+                    if (TxLength < (1 + sizeof(u16ConnstringLength)))
+                        return IFD_COMMUNICATION_ERROR;
+                    memcpy (&u16ConnstringLength, TxBuffer + 1, sizeof(u16ConnstringLength));
+                    Log2 (PCSC_LOG_DEBUG, "ifdnfc: u16ConnstringLength=%"PRIu16, u16ConnstringLength);
+                    if ((TxLength - (1 + sizeof(u16ConnstringLength))) != u16ConnstringLength)
+                        return IFD_COMMUNICATION_ERROR;
+                    memcpy (ifd_connstring, TxBuffer + (1 + sizeof(u16ConnstringLength)), u16ConnstringLength);
+                    Log2 (PCSC_LOG_DEBUG, "ifdnfc is now active using %s", ifd_connstring);
                     active = true;
+                }
                     break;
                 case IFDNFC_SET_INACTIVE:
                     release(&ifd_device, &ifd_slot);
@@ -399,13 +431,18 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
                     return IFD_COMMUNICATION_ERROR;
             }
 
-            if (pdwBytesReturned)
-                *pdwBytesReturned = 1;
             if (active) {
                 Log1(PCSC_LOG_INFO, "IFD-handler for libnfc is active.");
-                *RxBuffer = IFDNFC_IS_ACTIVE;
+                RxBuffer[0] = IFDNFC_IS_ACTIVE;
+                const uint16_t u16ConnstringLength = strlen (ifd_connstring) + 1;
+                memcpy (RxBuffer + 1, &u16ConnstringLength, sizeof(u16ConnstringLength));
+                memcpy (RxBuffer + 1 + sizeof(u16ConnstringLength), ifd_connstring, u16ConnstringLength);
+                if (pdwBytesReturned)
+                    *pdwBytesReturned = 1 + sizeof(u16ConnstringLength) + u16ConnstringLength;
             } else {
                 Log1(PCSC_LOG_INFO, "IFD-handler for libnfc is inactive.");
+                if (pdwBytesReturned)
+                    *pdwBytesReturned = 1;
                 *RxBuffer = IFDNFC_IS_INACTIVE;
             }
             break;
