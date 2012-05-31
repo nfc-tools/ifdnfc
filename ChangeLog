@@ -1,0 +1,165 @@
+2010-07-05 13:59  frankmorgner
+
+	* /src/ifd-nfc.c: polling disabled because of unwanted side effects
+
+2010-06-24 13:27  frankmorgner
+
+	* /src/ifd-nfc.c: removed needless type conversion
+
+2010-06-24 11:02  frankmorgner
+
+	* /src/ifd-nfc.c: - added check if ISO14443A is still in the field
+	  - don't disconnect if target is no longer present, this only
+	  yields an error
+
+2010-06-18 13:48  frankmorgner
+
+	* /configure.ac, /src/ifdnfc-activate.c: fixed error message when
+	  driver not found
+
+2010-06-10 14:32  frankmorgner
+
+	* /src/ifd-nfc.c: ATS issue fixed in libnfc r423
+
+2010-06-09 15:17  frankmorgner
+
+	* /src/Makefile.am: ifd-nfc.h is recognized by autotools
+
+2010-06-09 11:23  frankmorgner
+
+	* /configure.ac: updated version
+
+2010-06-09 11:15  frankmorgner
+
+	* /configure.ac: pcsc-lite-1.4.102 needed for SCARD_AUTOALLOCATE in
+	  SCardListReaders
+
+2010-06-09 10:08  frankmorgner
+
+	* /configure.ac: fixed checking for stdlib.h and ranlib
+
+2010-06-09 09:19  frankmorgner
+
+	* /ChangeLog, /README: releasing 0.1.3
+
+2010-06-08 19:18  frankmorgner
+
+	* /src/Makefile.am, /src/reader.conf.in: now getting the reader
+	  name for reader.conf directly from ifd-nfc.h
+
+2010-06-08 18:17  frankmorgner
+
+	* /src/ifd-nfc.h, /src/ifdnfc-activate.c: added IFDNFC_READER_NAME.
+	  fixed error when ifdnfc driver is not found.
+
+2010-06-08 13:17  frankmorgner
+
+	* /src/ifdnfc-activate.c: added support for not standardized reader
+	  names
+
+2010-06-08 11:27  frankmorgner
+
+	* /src/ifdnfc-activate.c: made code better readable
+
+2010-06-04 19:08  frankmorgner
+
+	* /bitbake/ifdnfc_0.1.1.bb, /bitbake/ifdnfc_0.1.2.bb,
+	  /bitbake/ifdnfc_0.1.bb, /bitbake/libnfc_1.3.4.bb: updated
+	  checksums and install files for recipes
+
+2010-06-01 16:10  frankmorgner
+
+	* /src/ifd-nfc.c, /src/ifd-nfc.h, /src/ifdnfc-activate.c: - added
+	  defines for communicating via SCardControl
+	  - added commandline option to ifdnfc-activate to simply print the
+	  current status of ifdnfc
+
+2010-06-01 15:17  frankmorgner
+
+	* /src/reader.conf.in: added missing template for reader.conf
+
+2010-06-01 15:12  frankmorgner
+
+	* /configure.ac: fixed install error when prefix is empty
+
+2010-06-01 15:02  frankmorgner
+
+	* /configure.ac: updated library version
+
+2010-06-01 08:21  frankmorgner
+
+	* /ChangeLog, /bitbake/ifdnfc_0.1.2.bb: Releasing version 0.1.2
+
+2010-05-27 10:07  frankmorgner
+
+	* /bitbake/ifdnfc_0.1.1.bb, /bitbake/ifdnfc_0.1.bb: updated files
+	  for 0.1.1
+
+2010-05-26 23:10  frankmorgner
+
+	* /ChangeLog, /bitbake/ifdnfc_0.1.bb, /configure.ac: preparation
+	  for 0.1.1
+
+2010-05-26 22:57  frankmorgner
+
+	* /src/Makefile.am: removing driver on uninstall
+
+2010-05-26 22:40  frankmorgner
+
+	* /src/Makefile.am: bugfix: using libtool for installation
+
+2010-05-26 18:12  frankmorgner
+
+	* /src/ifd-nfc.c: releasing device only on reset, not on power up
+
+2010-05-26 16:20  frankmorgner
+
+	* /src/ifd-nfc.c: - releasing device before reset/power up
+
+2010-05-26 16:10  frankmorgner
+
+	* /src/ifd-nfc.c: fixed disconnect problems
+
+2010-05-26 14:37  frankmorgner
+
+	* /bitbake, /bitbake/ifdnfc_0.1.bb, /bitbake/libnfc_1.3.4.bb: added
+	  bitbake files. thanks to Dominik Oepen for the contribution.
+
+2010-05-09 21:12  frankmorgner
+
+	* /README: changed formatting. added ubuntu as tested platform.
+
+2010-05-09 09:34  frankmorgner
+
+	* /README: added information
+
+2010-05-09 08:27  frankmorgner
+
+	* /configure.ac, /src/Makefile.am: be less restrictive in
+	  ./configure. better output of configuration details
+
+2010-05-08 15:29  frankmorgner
+
+	* /configure.ac, /m4/Makefile.am: all files in m4 are handled by
+	  the macros, a specific makefile.am is not needed
+
+2010-05-08 15:14  frankmorgner
+
+	* /configure.ac, /m4/Makefile.am: bugfix: autoconf recognizes m4
+	  directory
+
+2010-05-06 20:16  frankmorgner
+
+	* /configure.ac: added version check for libnfc
+
+2010-05-05 19:33  frankmorgner
+
+	* /Makefile, /m4: added m4, removed obsolete Makefile, use
+	  autotools instead
+
+2010-05-05 19:30  frankmorgner
+
+	* /AUTHORS, /COPYING, /ChangeLog, /Makefile, /Makefile.am, /NEWS,
+	  /README, /configure.ac, /src, /src/Makefile.am, /src/ifd-nfc.c,
+	  /src/ifd-nfc.h, /src/ifdnfc-activate.c: initial commit
+
