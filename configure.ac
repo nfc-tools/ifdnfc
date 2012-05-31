@@ -1,8 +1,8 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.65])
-AC_INIT([ifdnfc], [0.1.4], [http://sourceforge.net/projects/ifdnfc/support])
+AC_PREREQ([2.68])
+AC_INIT([ifdnfc],[0.1.4],[http://sourceforge.net/projects/ifdnfc/support])
 AC_CONFIG_SRCDIR([src/ifd-nfc.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -17,8 +17,6 @@ AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
-AC_PROG_RANLIB
-AC_PROG_LIBTOOL
 AM_PROG_CC_C_O
 PKG_PROG_PKG_CONFIG
 
@@ -51,7 +49,7 @@ LIBS="$saved_LIBS"
 
 # --enable-serialdropdir=DIR
 AC_ARG_ENABLE(serialdropdir,
-	AC_HELP_STRING([--enable-serialdropdir=DIR],[directory to install the
+	AS_HELP_STRING([--enable-serialdropdir=DIR],[directory to install the
 	serial wrapper driver (default to pcscd config or $(prefix)/pcsc/drivers/serial)]),
 	[serialdropdir="${enableval}"], [serialdropdir=false])
 if test "${serialdropdir}" = false ; then
