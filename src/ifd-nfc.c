@@ -90,7 +90,12 @@ static bool get_slot_atr(const struct nfc_slot *nslot,
                         (unsigned char *) nslot->atr, atr_len))
                 return false;
             break;
-        default:
+        case NMT_ISO14443BI:
+        case NMT_ISO14443B2CT:
+        case NMT_ISO14443B2SR:
+        case NMT_JEWEL:
+        case NMT_FELICA:
+        case NMT_DEP:
             /* for all other types: Empty ATR */
             Log1(PCSC_LOG_INFO, "Returning empty ATR "
                     "for card without APDU support.");
