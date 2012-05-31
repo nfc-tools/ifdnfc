@@ -111,40 +111,6 @@ static bool ifdnfc_target_to_atr(void)
     return true;
 }
 
-/*
-static bool get_device(nfc_device **device)
-{
-    if (!device)
-        return false;
-    if (*device)
-        return true;
-
-    nfc_init (NULL);
-    *device = nfc_open(NULL, ifd_connstring);
-    if (!*device) {
-        Log1(PCSC_LOG_ERROR, "Could not connect to NFC device");
-        return false;
-    }
-
-    if (nfc_initiator_init(*device) < 0) {
-        Log3(PCSC_LOG_ERROR, "Could not initialize \"%s\" as reader (%s).",
-                nfc_device_get_name(*device), nfc_strerror(*device));
-        return false;
-    }
-
-    if (nfc_device_set_property_bool (*device, NP_INFINITE_SELECT, false) < 0)
-        Log2(PCSC_LOG_ERROR,
-                "Could not deactivate infinite polling for targets (%s)."
-                " This might block the application sometimes...",
-                nfc_strerror(*device));
-
-    Log2(PCSC_LOG_INFO, "Connected to \"%s\".",
-                nfc_device_get_name(*device));
-
-    return true;
-}
-*/
-
 static bool ifdnfc_target_is_avalaible(void)
 {
     if (!ifdnfc.connected)
