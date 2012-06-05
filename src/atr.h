@@ -22,24 +22,24 @@
 #include <stddef.h>
 
 enum atr_modulation {
-    ATR_ISO14443A_106,
-    ATR_ISO14443B_106,
-    ATR_DEFAULT,
+  ATR_ISO14443A_106,
+  ATR_ISO14443B_106,
+  ATR_DEFAULT,
 };
 
-/** 
- * @brief 
- * 
+/**
+ * @brief
+ *
  * @param [in]     modulation
  * @param [in]     in      ATS without TL/CRC1/CRC2 for \c ATR_ISO14443A_106 and ATQB for \c ATR_ISO14443B_106
  * @param [in]     inlen   Length of \a in
  * @param [in,out] atr     where to store the ATR. Sould be big enough.
  * @param [in,out] atr_len Length of \a atr
- * 
- * @return 
+ *
+ * @return
  */
 int get_atr(enum atr_modulation modulation,
-        const unsigned char *in, size_t inlen,
-        unsigned char *atr, size_t *atr_len);
+            const unsigned char *in, size_t inlen,
+            unsigned char *atr, size_t *atr_len);
 
 #endif
