@@ -223,7 +223,39 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
   ifdnfc.slot.present = false;
   nfc_init(NULL);
 
-  Log2(PCSC_LOG_DEBUG, "\"DEVICENAME    %s\" is not used.", DeviceName);
+  // USB DeviceNames can be immediately handled, e.g.:
+  // usb:1fd3/0608:libudev:0:/dev/bus/usb/002/079
+  // => connstring usb:002:079
+  int n = strlen(DeviceName) + 1;
+  char *vidpid      = malloc(n);
+  char *hpdriver    = malloc(n);
+  char *ifn         = malloc(n);
+  char *devpath     = malloc(n);
+  char *dirname     = malloc(n);
+  char *filename    = malloc(n);
+
+  int res = sscanf(DeviceName, "usb:%[^:]:%[^:]:%[^:]:%[^:]", vidpid, hpdriver, ifn, devpath);
+  if (res == 4) {
+    int res = sscanf(devpath, "/dev/bus/usb/%[^/]/%[^/]", dirname, filename);
+    if (res == 2) {
+      strcpy(ifd_connstring, "usb:xxx:xxx");
+      memcpy(ifd_connstring + 4, dirname, 3);
+      memcpy(ifd_connstring + 8, filename, 3);
+      ifdnfc.device = nfc_open(NULL, ifd_connstring);
+      ifdnfc.connected = (ifdnfc.device) ? true : false;
+    }
+  }
+  free(vidpid);
+  free(hpdriver);
+  free(ifn);
+  free(devpath);
+  free(dirname);
+  free(filename);
+
+  if (!ifdnfc.connected)
+    Log2(PCSC_LOG_DEBUG, "\"DEVICENAME    %s\" is not used.", DeviceName);
+  else
+    Log2(PCSC_LOG_DEBUG, "\"DEVICENAME    %s\" is used by libnfc.", DeviceName);
   Log1(PCSC_LOG_INFO, "IFD-handler for NFC devices is ready.");
   return IFD_SUCCESS;
 }
