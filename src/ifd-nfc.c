@@ -51,9 +51,12 @@ struct ifd_device {
   nfc_device *device;
   struct ifd_slot slot;
   bool connected;
+  DWORD Lun;
 };
 
-static struct ifd_device ifdnfc;
+#define IFDNFC_MAX_DEVICES 10
+static struct ifd_device ifd_devices[IFDNFC_MAX_DEVICES];
+static bool ifdnfc_initialized = false;
 
 static nfc_connstring ifd_connstring;
 
@@ -61,34 +64,48 @@ static const nfc_modulation supported_modulations[] = {
   { NMT_ISO14443A, NBR_106 },
 };
 
-static void ifdnfc_disconnect(void)
+static int lun2device_index(DWORD Lun)
 {
-  if (ifdnfc.connected) {
-    if (ifdnfc.slot.present) {
-      if (nfc_initiator_deselect_target(ifdnfc.device) < 0) {
-        Log3(PCSC_LOG_ERROR, "Could not disconnect from %s (%s).", str_nfc_modulation_type(ifdnfc.slot.target.nm.nmt), nfc_strerror(ifdnfc.device));
+  int i;
+  // Find slot containing Lun
+  for (i = 0; i < sizeof(ifd_devices); i++)
+    if (ifd_devices[i].Lun == Lun) {
+      return i;
+      break;
+    }
+  // Slot not found
+  return -1;
+}
+
+static void ifdnfc_disconnect(struct ifd_device *ifdnfc)
+{
+  if (ifdnfc->connected) {
+    if (ifdnfc->slot.present) {
+      if (nfc_initiator_deselect_target(ifdnfc->device) < 0) {
+        Log3(PCSC_LOG_ERROR, "Could not disconnect from %s (%s).", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
       } else {
-        ifdnfc.slot.present = false;
+        ifdnfc->slot.present = false;
       }
     }
-    nfc_close(ifdnfc.device);
-    ifdnfc.connected = false;
-    ifdnfc.device = NULL;
+    nfc_close(ifdnfc->device);
+    ifdnfc->connected = false;
+    ifdnfc->device = NULL;
+    ifdnfc->Lun = -1;
   }
 }
 
-static bool ifdnfc_target_to_atr(void)
+static bool ifdnfc_target_to_atr(struct ifd_device *ifdnfc)
 {
   unsigned char atqb[12];
-  ifdnfc.slot.atr_len = sizeof(ifdnfc.slot.atr);
+  ifdnfc->slot.atr_len = sizeof(ifdnfc->slot.atr);
 
-  switch (ifdnfc.slot.target.nm.nmt) {
+  switch (ifdnfc->slot.target.nm.nmt) {
     case NMT_ISO14443A:
       /* libnfc already strips TL and CRC1/CRC2 */
       if (!get_atr(ATR_ISO14443A_106,
-                   ifdnfc.slot.target.nti.nai.abtAts, ifdnfc.slot.target.nti.nai.szAtsLen,
-                   (unsigned char *) ifdnfc.slot.atr, &(ifdnfc.slot.atr_len))) {
-        ifdnfc.slot.atr_len = 0;
+                   ifdnfc->slot.target.nti.nai.abtAts, ifdnfc->slot.target.nti.nai.szAtsLen,
+                   (unsigned char *) ifdnfc->slot.atr, &(ifdnfc->slot.atr_len))) {
+        ifdnfc->slot.atr_len = 0;
         return false;
       }
       break;
@@ -97,17 +114,17 @@ static bool ifdnfc_target_to_atr(void)
       atqb[0] = 0x50;
 
       // Store the PUPI (Pseudo-Unique PICC Identifier)
-      memcpy(&atqb[1], ifdnfc.slot.target.nti.nbi.abtPupi, 4);
+      memcpy(&atqb[1], ifdnfc->slot.target.nti.nbi.abtPupi, 4);
 
       // Store the Application Data
-      memcpy(&atqb[5], ifdnfc.slot.target.nti.nbi.abtApplicationData, 4);
+      memcpy(&atqb[5], ifdnfc->slot.target.nti.nbi.abtApplicationData, 4);
 
       // Store the Protocol Info
-      memcpy(&atqb[9], ifdnfc.slot.target.nti.nbi.abtProtocolInfo, 3);
+      memcpy(&atqb[9], ifdnfc->slot.target.nti.nbi.abtProtocolInfo, 3);
 
       if (!get_atr(ATR_ISO14443A_106, atqb, sizeof(atqb),
-                   (unsigned char *) ifdnfc.slot.atr, &(ifdnfc.slot.atr_len)))
-        ifdnfc.slot.atr_len = 0;
+                   (unsigned char *) ifdnfc->slot.atr, &(ifdnfc->slot.atr_len)))
+        ifdnfc->slot.atr_len = 0;
       return false;
       break;
     case NMT_ISO14443BI:
@@ -118,26 +135,26 @@ static bool ifdnfc_target_to_atr(void)
     case NMT_DEP:
       /* for all other types: Empty ATR */
       Log1(PCSC_LOG_INFO, "Returning empty ATR for card without APDU support.");
-      ifdnfc.slot.atr_len = 0;
+      ifdnfc->slot.atr_len = 0;
       return true;
   }
 
   return true;
 }
 
-static bool ifdnfc_reselect_target(void)
+static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc)
 {
-  switch (ifdnfc.slot.target.nm.nmt) {
+  switch (ifdnfc->slot.target.nm.nmt) {
     case NMT_ISO14443A: {
-      if (nfc_device_set_property_bool(ifdnfc.device, NP_INFINITE_SELECT, false) < 0) {
-        Log2(PCSC_LOG_ERROR, "Could not set infinite-select property (%s)", nfc_strerror(ifdnfc.device));
-        ifdnfc.slot.present = false;
+      if (nfc_device_set_property_bool(ifdnfc->device, NP_INFINITE_SELECT, false) < 0) {
+        Log2(PCSC_LOG_ERROR, "Could not set infinite-select property (%s)", nfc_strerror(ifdnfc->device));
+        ifdnfc->slot.present = false;
         return false;
       }
       nfc_target nt;
-      if (nfc_initiator_select_passive_target(ifdnfc.device, ifdnfc.slot.target.nm, ifdnfc.slot.target.nti.nai.abtUid, ifdnfc.slot.target.nti.nai.szUidLen, &nt) < 1) {
-        Log3(PCSC_LOG_DEBUG, "Could not select target %s. (%s)", str_nfc_modulation_type(ifdnfc.slot.target.nm.nmt), nfc_strerror(ifdnfc.device));
-        ifdnfc.slot.present = false;
+      if (nfc_initiator_select_passive_target(ifdnfc->device, ifdnfc->slot.target.nm, ifdnfc->slot.target.nti.nai.abtUid, ifdnfc->slot.target.nti.nai.szUidLen, &nt) < 1) {
+        Log3(PCSC_LOG_DEBUG, "Could not select target %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
+        ifdnfc->slot.present = false;
         return false;
       } else {
         return true;
@@ -151,59 +168,59 @@ static bool ifdnfc_reselect_target(void)
   return false;
 }
 
-static bool ifdnfc_target_is_available(void)
+static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
 {
-  if (!ifdnfc.connected)
+  if (!ifdnfc->connected)
     return false;
 
-  if (ifdnfc.slot.present) {
-    if (ifdnfc.slot.powered) {
+  if (ifdnfc->slot.present) {
+    if (ifdnfc->slot.powered) {
       // Target is active and just need a ping-like command (handled by libnfc)
-      if (nfc_initiator_target_is_present(ifdnfc.device, ifdnfc.slot.target) < 0) {
-        Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc.slot.target.nm.nmt), nfc_strerror(ifdnfc.device));
-        ifdnfc.slot.present = false;
+      if (nfc_initiator_target_is_present(ifdnfc->device, ifdnfc->slot.target) < 0) {
+        Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
+        ifdnfc->slot.present = false;
         return false;
       }
       return true;
     } else {
       // Target is not powered and need to be wakeup
-      if (nfc_initiator_init(ifdnfc.device) < 0) {
-        Log2(PCSC_LOG_ERROR, "Could not initialize initiator mode. (%s)", nfc_strerror(ifdnfc.device));
-        ifdnfc.slot.present = false;
+      if (nfc_initiator_init(ifdnfc->device) < 0) {
+        Log2(PCSC_LOG_ERROR, "Could not initialize initiator mode. (%s)", nfc_strerror(ifdnfc->device));
+        ifdnfc->slot.present = false;
         return false;
       }
-      if (!ifdnfc_reselect_target()) {
-        Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc.slot.target.nm.nmt), nfc_strerror(ifdnfc.device));
-        ifdnfc.slot.present = false;
+      if (!ifdnfc_reselect_target(ifdnfc)) {
+        Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
+        ifdnfc->slot.present = false;
         return false;
       }
-      if (nfc_initiator_deselect_target(ifdnfc.device) < 0) {
-        Log2(PCSC_LOG_ERROR, "Could not deselect target. (%s)", nfc_strerror(ifdnfc.device));
+      if (nfc_initiator_deselect_target(ifdnfc->device) < 0) {
+        Log2(PCSC_LOG_ERROR, "Could not deselect target. (%s)", nfc_strerror(ifdnfc->device));
       }
       return true;
     }
   } // else
 
-  // ifdnfc.slot not powered means the field is not active, so when no target
+  // ifdnfc->slot not powered means the field is not active, so when no target
   // is available ifdnfc needs to generated a field
-  if (!ifdnfc.slot.powered) {
-    if (nfc_initiator_init(ifdnfc.device) < 0) {
-      Log2(PCSC_LOG_ERROR, "Could not init NFC device in initiator mode (%s).", nfc_strerror(ifdnfc.device));
+  if (!ifdnfc->slot.powered) {
+    if (nfc_initiator_init(ifdnfc->device) < 0) {
+      Log2(PCSC_LOG_ERROR, "Could not init NFC device in initiator mode (%s).", nfc_strerror(ifdnfc->device));
       return false;
     }
     // To prevent from multiple init
-    ifdnfc.slot.powered = true;
+    ifdnfc->slot.powered = true;
   }
 
   // find new connection
   size_t i;
   for (i = 0; i < (sizeof(supported_modulations) / sizeof(nfc_modulation)); i++) {
-    if (nfc_initiator_list_passive_targets(ifdnfc.device, supported_modulations[i], &(ifdnfc.slot.target), 1) == 1) {
-      ifdnfc_target_to_atr();
-      ifdnfc.slot.present = true;
+    if (nfc_initiator_list_passive_targets(ifdnfc->device, supported_modulations[i], &(ifdnfc->slot.target), 1) == 1) {
+      ifdnfc_target_to_atr(ifdnfc);
+      ifdnfc->slot.present = true;
       // XXX Should it be on or off after target selection ?
-      ifdnfc.slot.powered = true;
-      Log2(PCSC_LOG_INFO, "Connected to %s.", str_nfc_modulation_type(ifdnfc.slot.target.nm.nmt));
+      ifdnfc->slot.powered = true;
+      Log2(PCSC_LOG_INFO, "Connected to %s.", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt));
       return true;
     }
   }
@@ -218,10 +235,31 @@ RESPONSECODE
 IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
 {
   (void) Lun;
-  ifdnfc.device = NULL;
-  ifdnfc.connected = false;
-  ifdnfc.slot.present = false;
-  nfc_init(NULL);
+  int device_index, i;
+  if (! ifdnfc_initialized) {
+    Log1(PCSC_LOG_DEBUG, "Driver initialization");
+    for (i = 0; i < IFDNFC_MAX_DEVICES; i++)
+      ifd_devices[i].Lun = -1;
+    nfc_init(NULL);
+    ifdnfc_initialized = true;
+    // First slot is free
+    device_index = 0;
+  } else {
+    // Find a free slot
+    for (i = 0; i < IFDNFC_MAX_DEVICES; i++)
+      if (ifd_devices[i].Lun == -1) {
+        device_index = i;
+        break;
+      } else if (i == IFDNFC_MAX_DEVICES - 1) {
+        // No free slot
+        return IFD_COMMUNICATION_ERROR;
+      }
+  }
+
+  struct ifd_device *ifdnfc = &ifd_devices[device_index];
+  ifdnfc->device = NULL;
+  ifdnfc->connected = false;
+  ifdnfc->slot.present = false;
 
   // USB DeviceNames can be immediately handled, e.g.:
   // usb:1fd3/0608:libudev:0:/dev/bus/usb/002/079
@@ -241,8 +279,9 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
       strcpy(ifd_connstring, "usb:xxx:xxx");
       memcpy(ifd_connstring + 4, dirname, 3);
       memcpy(ifd_connstring + 8, filename, 3);
-      ifdnfc.device = nfc_open(NULL, ifd_connstring);
-      ifdnfc.connected = (ifdnfc.device) ? true : false;
+      ifdnfc->device = nfc_open(NULL, ifd_connstring);
+      ifdnfc->connected = (ifdnfc->device) ? true : false;
+      ifdnfc->Lun = Lun;
     }
   }
   free(vidpid);
@@ -252,7 +291,7 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
   free(dirname);
   free(filename);
 
-  if (!ifdnfc.connected)
+  if (!ifdnfc->connected)
     Log2(PCSC_LOG_DEBUG, "\"DEVICENAME    %s\" is not used.", DeviceName);
   else
     Log2(PCSC_LOG_DEBUG, "\"DEVICENAME    %s\" is used by libnfc.", DeviceName);
@@ -273,7 +312,19 @@ RESPONSECODE
 IFDHCloseChannel(DWORD Lun)
 {
   (void) Lun;
-  ifdnfc_disconnect();
+  int device_index = lun2device_index(Lun);
+  if (device_index < 0)
+    return IFD_COMMUNICATION_ERROR;
+  struct ifd_device *ifdnfc = &ifd_devices[device_index];
+  ifdnfc_disconnect(ifdnfc);
+
+  // Check if there are still devices used
+  int i;
+  for (i = 0; i < IFDNFC_MAX_DEVICES; i++)
+    if (ifd_devices[i].Lun != -1)
+      // yes so don't exit libnfc
+      return IFD_SUCCESS;
+  // No more device, we can shutdown libnfc
   nfc_exit(NULL);
   return IFD_SUCCESS;
 }
@@ -283,6 +334,10 @@ IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
 {
   Log4(PCSC_LOG_DEBUG, "IFDHGetCapabilities(DWORD Lun (%08x), DWORD Tag (%08x), PDWORD Length (%lu), PUCHAR Value)", Lun, Tag, *Length);
   (void) Lun;
+  int device_index = lun2device_index(Lun);
+  if (device_index < 0)
+    return IFD_COMMUNICATION_ERROR;
+  struct ifd_device *ifdnfc = &ifd_devices[device_index];
   if (!Length || !Value)
     return IFD_COMMUNICATION_ERROR;
 
@@ -291,24 +346,35 @@ IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
 #ifdef SCARD_ATTR_ATR_STRING
     case SCARD_ATTR_ATR_STRING:
 #endif
-      if (!ifdnfc.connected || !ifdnfc.slot.present)
+      if (!ifdnfc->connected || !ifdnfc->slot.present)
         return(IFD_COMMUNICATION_ERROR);
-      if (*Length < ifdnfc.slot.atr_len)
+      if (*Length < ifdnfc->slot.atr_len)
         return IFD_COMMUNICATION_ERROR;
 
-      memcpy(Value, ifdnfc.slot.atr, ifdnfc.slot.atr_len);
-      *Length = ifdnfc.slot.atr_len;
+      memcpy(Value, ifdnfc->slot.atr, ifdnfc->slot.atr_len);
+      *Length = ifdnfc->slot.atr_len;
+      break;
+
+    case TAG_IFD_SIMULTANEOUS_ACCESS:
+      if (*Length >= 1) {
+        *Length = 1;
+        *Value = 10;
+      } else
+        return IFD_ERROR_INSUFFICIENT_BUFFER;
+      break;
+    case TAG_IFD_THREAD_SAFE:
+      if (*Length < 1)
+        return IFD_COMMUNICATION_ERROR;
+      *Value  = 0;
+      *Length = 1;
       break;
     case TAG_IFD_SLOTS_NUMBER:
       if (*Length < 1)
         return IFD_COMMUNICATION_ERROR;
-
       *Value  = 1;
       *Length = 1;
       break;
     case TAG_IFD_STOP_POLLING_THREAD:
-      Log3(PCSC_LOG_ERROR, "Tag %08x (%lu) not supported", Tag, (unsigned long) Tag);
-      return IFD_ERROR_TAG;
     default:
       Log3(PCSC_LOG_ERROR, "Tag %08x (%lu) not supported", Tag, (unsigned long) Tag);
       return IFD_ERROR_TAG;
@@ -346,32 +412,36 @@ RESPONSECODE
 IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 {
   (void) Lun;
+  int device_index = lun2device_index(Lun);
+  if (device_index < 0)
+    return IFD_COMMUNICATION_ERROR;
+  struct ifd_device *ifdnfc = &ifd_devices[device_index];
   if (!Atr || !AtrLength)
     return IFD_COMMUNICATION_ERROR;
 
-  if (!ifdnfc.connected)
+  if (!ifdnfc->connected)
     return(IFD_COMMUNICATION_ERROR);
 
   switch (Action) {
     case IFD_POWER_DOWN:
       // IFD_POWER_DOWN: Power down the card (Atr and AtrLength should be zeroed)
-      if (nfc_idle(ifdnfc.device) < 0) {
-        Log2(PCSC_LOG_ERROR, "Could not idle NFC device (%s).", nfc_strerror(ifdnfc.device));
+      if (nfc_idle(ifdnfc->device) < 0) {
+        Log2(PCSC_LOG_ERROR, "Could not idle NFC device (%s).", nfc_strerror(ifdnfc->device));
         return IFD_ERROR_POWER_ACTION;
       }
-      ifdnfc.slot.powered = false;
+      ifdnfc->slot.powered = false;
       *AtrLength = 0;
       return IFD_SUCCESS;
       break;
     case IFD_RESET:
       // IFD_RESET: Perform a warm reset of the card (no power down). If the card is not powered then power up the card (store and return Atr and AtrLength)
-      if (ifdnfc.slot.present) {
-        ifdnfc.slot.present = false;
-        if (nfc_initiator_deselect_target(ifdnfc.device) < 0) {
-          Log2(PCSC_LOG_ERROR, "Could not deselect NFC target (%s).", nfc_strerror(ifdnfc.device));
+      if (ifdnfc->slot.present) {
+        ifdnfc->slot.present = false;
+        if (nfc_initiator_deselect_target(ifdnfc->device) < 0) {
+          Log2(PCSC_LOG_ERROR, "Could not deselect NFC target (%s).", nfc_strerror(ifdnfc->device));
           return IFD_ERROR_POWER_ACTION;
         }
-        if (!ifdnfc_reselect_target()) {
+        if (!ifdnfc_reselect_target(ifdnfc)) {
           return IFD_ERROR_POWER_ACTION;
         }
         return IFD_SUCCESS;
@@ -379,12 +449,12 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
       break;
     case IFD_POWER_UP:
       // IFD_POWER_UP: Power up the card (store and return Atr and AtrLength)
-      if (ifdnfc_target_is_available()) {
-        if (*AtrLength < ifdnfc.slot.atr_len)
+      if (ifdnfc_target_is_available(ifdnfc)) {
+        if (*AtrLength < ifdnfc->slot.atr_len)
           return IFD_COMMUNICATION_ERROR;
-        memcpy(Atr, ifdnfc.slot.atr, ifdnfc.slot.atr_len);
-        // memset(Atr + ifdnfc.slot.atr_len, 0, *AtrLength - ifd_slot.atr_len);
-        *AtrLength = ifdnfc.slot.atr_len;
+        memcpy(Atr, ifdnfc->slot.atr, ifdnfc->slot.atr_len);
+        // memset(Atr + ifdnfc->slot.atr_len, 0, *AtrLength - ifd_slot.atr_len);
+        *AtrLength = ifdnfc->slot.atr_len;
       } else {
         *AtrLength = 0;
         return IFD_COMMUNICATION_ERROR;
@@ -403,11 +473,15 @@ IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
                   TxLength, PUCHAR RxBuffer, PDWORD RxLength, PSCARD_IO_HEADER RecvPci)
 {
   (void) Lun;
+  int device_index = lun2device_index(Lun);
+  if (device_index < 0)
+    return IFD_COMMUNICATION_ERROR;
+  struct ifd_device *ifdnfc = &ifd_devices[device_index];
   (void) SendPci;
   if (!RxLength || !RecvPci)
     return IFD_COMMUNICATION_ERROR;
 
-  if (!ifdnfc.connected || !ifdnfc.slot.present) {
+  if (!ifdnfc->connected || !ifdnfc->slot.present) {
     *RxLength = 0;
     return IFD_ICC_NOT_PRESENT;
   }
@@ -416,10 +490,10 @@ IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
 
   size_t tl = TxLength, rl = *RxLength;
   int res;
-  if ((res = nfc_initiator_transceive_bytes(ifdnfc.device, TxBuffer, tl,
+  if ((res = nfc_initiator_transceive_bytes(ifdnfc->device, TxBuffer, tl,
                                             RxBuffer, rl, -1)) < 0) {
     Log2(PCSC_LOG_ERROR, "Could not transceive data (%s).",
-         nfc_strerror(ifdnfc.device));
+         nfc_strerror(ifdnfc->device));
     *RxLength = 0;
     return(IFD_COMMUNICATION_ERROR);
   }
@@ -436,9 +510,13 @@ RESPONSECODE
 IFDHICCPresence(DWORD Lun)
 {
   (void) Lun;
-  if (!ifdnfc.connected)
+  int device_index = lun2device_index(Lun);
+  if (device_index < 0)
+    return IFD_COMMUNICATION_ERROR;
+  struct ifd_device *ifdnfc = &ifd_devices[device_index];
+  if (!ifdnfc->connected)
     return IFD_ICC_NOT_PRESENT;
-  return ifdnfc_target_is_available() ? IFD_SUCCESS : IFD_ICC_NOT_PRESENT;
+  return ifdnfc_target_is_available(ifdnfc) ? IFD_SUCCESS : IFD_ICC_NOT_PRESENT;
 }
 
 RESPONSECODE
@@ -446,6 +524,10 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
             PUCHAR RxBuffer, DWORD RxLength, LPDWORD pdwBytesReturned)
 {
   (void) Lun;
+  int device_index = lun2device_index(Lun);
+  if (device_index < 0)
+    return IFD_COMMUNICATION_ERROR;
+  struct ifd_device *ifdnfc = &ifd_devices[device_index];
   if (pdwBytesReturned)
     *pdwBytesReturned = 0;
 
@@ -463,12 +545,13 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
           if ((TxLength - (1 + sizeof(u16ConnstringLength))) != u16ConnstringLength)
             return IFD_COMMUNICATION_ERROR;
           memcpy(ifd_connstring, TxBuffer + (1 + sizeof(u16ConnstringLength)), u16ConnstringLength);
-          ifdnfc.device = nfc_open(NULL, ifd_connstring);
-          ifdnfc.connected = (ifdnfc.device) ? true : false;
+          ifdnfc->device = nfc_open(NULL, ifd_connstring);
+          ifdnfc->connected = (ifdnfc->device) ? true : false;
+          ifdnfc->Lun = Lun;
         }
         break;
         case IFDNFC_SET_INACTIVE:
-          ifdnfc_disconnect();
+          ifdnfc_disconnect(ifdnfc);
           break;
         case IFDNFC_GET_STATUS:
           break;
@@ -481,7 +564,7 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
           return IFD_COMMUNICATION_ERROR;
       }
 
-      if (ifdnfc.connected) {
+      if (ifdnfc->connected) {
         Log1(PCSC_LOG_INFO, "IFD-handler for libnfc is active.");
         RxBuffer[0] = IFDNFC_IS_ACTIVE;
         const uint16_t u16ConnstringLength = strlen(ifd_connstring) + 1;
