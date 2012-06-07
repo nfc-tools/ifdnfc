@@ -66,6 +66,18 @@ if test "${serialdropdir}" = false ; then
 	fi
 fi
 
+# --enable-usbdropdir=DIR
+AC_ARG_ENABLE(usbdropdir,
+	AC_HELP_STRING([--enable-usbdropdir=DIR],[directory containing USB
+	drivers (default to pcscd config or $(prefix)/pcsc/drivers)]),
+	[usbdropdir="${enableval}"], [usbdropdir=false])
+if test "${usbdropdir}" = false ; then
+	usbdropdir=`$PKG_CONFIG libpcsclite --variable=usbdropdir`
+fi
+AC_DEFINE_UNQUOTED(PCSCLITE_HP_DROPDIR, "$usbdropdir", [directory containing USB drivers])
+if test "${usbdropdir}" = "" ; then
+	AC_MSG_ERROR([use --enable-usbdropdir=DIR])
+fi
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h string.h])
@@ -81,6 +93,8 @@ AC_CHECK_FUNCS([memset])
 AC_SUBST(BUNDLE_HOST)
 AC_SUBST(DYN_LIB_EXT)
 AC_SUBST(serialdropdir)
+AC_SUBST(usbdropdir)
+
 case "$host" in
 *-*-darwin*)
 	BUNDLE_HOST="MacOS"
@@ -115,7 +129,7 @@ ${PACKAGE} has been configured with following options:
 
 Version:              ${PACKAGE_VERSION}
 User binaries:        $(eval eval eval echo "${bindir}")
-Driver directory:     ${serialdropdir}
+Driver directory:     ${usbdropdir}
 
 
 Host:                 ${host}

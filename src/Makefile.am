@@ -1,4 +1,5 @@
 IFDNFC_LIB = libifdnfc.$(DYN_LIB_EXT)
+IFDNFC_BUNDLE = ifdnfc.bundle
 
 lib_LTLIBRARIES = libifdnfc.la
 libifdnfc_la_SOURCES = ifd-nfc.c atr.c
@@ -18,14 +19,15 @@ EXTRA_DIST = reader.conf.in
 install: install_ifdnfc install_ifdnfc_activate
 
 install_ifdnfc: libifdnfc.la
-	$(mkinstalldirs) $(DESTDIR)$(serialdropdir)
-	$(LIBTOOL) --mode=install cp .libs/$(IFDNFC_LIB) $(DESTDIR)$(serialdropdir)/$(IFDNFC_LIB).$(VERSION)
-	ln -fs $(IFDNFC_LIB).$(VERSION) $(DESTDIR)$(serialdropdir)/$(IFDNFC_LIB)
+	$(mkinstalldirs) $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/
+	cp Info.plist $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/
+	cp .libs/$(IFDNFC_LIB) $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/$(IFDNFC_LIB).$(VERSION)
+
 	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)/reader.conf.d
 	name=`grep IFDNFC_READER_NAME $(srcdir)/ifd-nfc.h`; \
 		name=$${name##*IFDNFC_READER_NAME}; \
 		perl -ne "s|TARGETNAME|$${name}| ; print" $(srcdir)/reader.conf.in > tmp ; \
-		perl -ne "s|TARGETPATH|$(serialdropdir)/$(IFDNFC_LIB)| ; print" tmp > $(DESTDIR)$(sysconfdir)/reader.conf.d/ifdnfc ; \
+		perl -ne "s|TARGETPATH|$(usbdropdir)/$(IFDNFC_LIB)| ; print" tmp > $(DESTDIR)$(sysconfdir)/reader.conf.d/ifdnfc ; \
 		rm -f tmp;
 
 install_ifdnfc_activate: ifdnfc-activate
@@ -36,8 +38,8 @@ install_ifdnfc_activate: ifdnfc-activate
 uninstall: uninstall_ifdnfc uninstall_ifdnfc_activate
 
 uninstall_ifdnfc:
-	rm -f $(DESTDIR)$(serialdropdir)/$(IFDNFC_LIB).$(VERSION) \
-	    $(DESTDIR)$(serialdropdir)/$(IFDNFC_LIB)
+	rm -f $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/Info.plist \
+	    $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/$(IFDNFC_LIB)
 
 uninstall_ifdnfc_activate:
 	rm -f $(DESTDIR)$(bindir)/ifdnfc-activate

@@ -1,4 +1,6 @@
-FRIENDLYNAME TARGETNAME
-DEVICENAME   /dev/null
-LIBPATH      TARGETPATH
-CHANNELID    0
+## This file can be enabled if you want to use ifdnfc with a non-usb device (not
+## automatically detected by PCSC)
+#FRIENDLYNAME TARGETNAME
+#DEVICENAME   /dev/null
+#LIBPATH      TARGETPATH
+#CHANNELID    0

@@ -19,7 +19,7 @@
 #ifndef _IFD_NFC_H_
 #define _IFD_NFC_H_
 
-#define IFDNFC_READER_NAME   "Wrapper driver for libnfc"
+#define IFDNFC_READER_NAME   "IFD-NFC"
 
 #define IFDNFC_CTRL_ACTIVE   1
 
