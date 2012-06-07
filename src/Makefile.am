@@ -25,11 +25,9 @@ install_ifdnfc: libifdnfc.la
 	cp .libs/$(IFDNFC_LIB) $(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)
 
 	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)/reader.conf.d
-	name=`grep IFDNFC_READER_NAME $(srcdir)/ifd-nfc.h`; \
-		name=$${name##*IFDNFC_READER_NAME}; \
-		perl -ne "s|TARGETNAME|$${name}| ; print" $(srcdir)/reader.conf.in > tmp ; \
-		perl -ne "s|TARGETPATH|$(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)| ; print" tmp > $(DESTDIR)$(sysconfdir)/reader.conf.d/ifdnfc ; \
-		rm -f tmp;
+	sed "s#TARGETNAME#`awk '/IFDNFC_READER_NAME/ {print $$3}' $(srcdir)/ifd-nfc.h`#;\
+	s#TARGETPATH#$(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)#"   $(srcdir)/reader.conf.in \
+		> $(DESTDIR)$(sysconfdir)/reader.conf.d/ifdnfc
 
 install_ifdnfc_activate: ifdnfc-activate
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
