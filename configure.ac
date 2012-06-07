@@ -47,25 +47,6 @@ CPPFLAGS="$saved_CPPFLAGS"
 LIBS="$saved_LIBS"
 
 
-# --enable-serialdropdir=DIR
-AC_ARG_ENABLE(serialdropdir,
-	AS_HELP_STRING([--enable-serialdropdir=DIR],[directory to install the
-	serial wrapper driver (default to pcscd config or $(prefix)/pcsc/drivers/serial)]),
-	[serialdropdir="${enableval}"], [serialdropdir=false])
-if test "${serialdropdir}" = false ; then
-	if test "${prefix}" = NONE ; then
-		serialdropdir=`$PKG_CONFIG libpcsclite --variable=usbdropdir`/serial
-		if test "${serialdropdir}" = "/serial" ; then
-			AC_MSG_ERROR([use --enable-serialdropdir=DIR])
-		fi
-	else
-		serialdropdir=${prefix}`$PKG_CONFIG libpcsclite --variable=usbdropdir`/serial
-		if test "${serialdropdir}" = "${prefix}/serial" ; then
-			AC_MSG_ERROR([use --enable-serialdropdir=DIR])
-		fi
-	fi
-fi
-
 # --enable-usbdropdir=DIR
 AC_ARG_ENABLE(usbdropdir,
 	AC_HELP_STRING([--enable-usbdropdir=DIR],[directory containing USB
@@ -92,7 +73,6 @@ AC_CHECK_FUNCS([memset])
 # Select OS specific versions of source files.
 AC_SUBST(BUNDLE_HOST)
 AC_SUBST(DYN_LIB_EXT)
-AC_SUBST(serialdropdir)
 AC_SUBST(usbdropdir)
 
 case "$host" in
