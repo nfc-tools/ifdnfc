@@ -108,9 +108,6 @@ cat << EOF
 ${PACKAGE} has been configured with following options:
 
 Version:              ${PACKAGE_VERSION}
-User binaries:        ${bindir}
-Driver directory:     ${usbdropdir}
-
 
 Host:                 ${host}
 Compiler:             ${CC}
