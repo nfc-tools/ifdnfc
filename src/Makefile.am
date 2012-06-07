@@ -15,19 +15,20 @@ noinst_HEADERS = ifd-nfc.h atr.h
 
 EXTRA_DIST = reader.conf.in
 
+ifdnfcdropdir = $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)
 
 install: install_ifdnfc install_ifdnfc_activate
 
 install_ifdnfc: libifdnfc.la
-	$(mkinstalldirs) $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/
+	$(mkinstalldirs) $(ifdnfcdropdir)/
 	cp Info.plist $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/
-	cp .libs/$(IFDNFC_LIB) $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/$(IFDNFC_LIB).$(VERSION)
+	cp .libs/$(IFDNFC_LIB) $(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)
 
 	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)/reader.conf.d
 	name=`grep IFDNFC_READER_NAME $(srcdir)/ifd-nfc.h`; \
 		name=$${name##*IFDNFC_READER_NAME}; \
 		perl -ne "s|TARGETNAME|$${name}| ; print" $(srcdir)/reader.conf.in > tmp ; \
-		perl -ne "s|TARGETPATH|$(usbdropdir)/$(IFDNFC_LIB)| ; print" tmp > $(DESTDIR)$(sysconfdir)/reader.conf.d/ifdnfc ; \
+		perl -ne "s|TARGETPATH|$(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)| ; print" tmp > $(DESTDIR)$(sysconfdir)/reader.conf.d/ifdnfc ; \
 		rm -f tmp;
 
 install_ifdnfc_activate: ifdnfc-activate

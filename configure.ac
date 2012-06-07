@@ -128,7 +128,7 @@ cat << EOF
 ${PACKAGE} has been configured with following options:
 
 Version:              ${PACKAGE_VERSION}
-User binaries:        $(eval eval eval echo "${bindir}")
+User binaries:        ${bindir}
 Driver directory:     ${usbdropdir}
 
 
