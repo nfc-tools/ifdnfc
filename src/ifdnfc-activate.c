@@ -33,7 +33,6 @@ main(int argc, char *argv[])
   LONG rv;
   SCARDCONTEXT hContext;
   SCARDHANDLE hCard;
-  LPSTR mszReaders = NULL;
   char *reader;
   BYTE pbSendBuffer[1 + 1 + sizeof(nfc_connstring)];
   DWORD dwSendLength;
@@ -57,8 +56,14 @@ main(int argc, char *argv[])
   if (rv < 0)
     goto pcsc_error;
 
-  dwReaders = SCARD_AUTOALLOCATE;
-  rv = SCardListReaders(hContext, NULL, (LPSTR)&mszReaders, &dwReaders);
+  dwReaders = 0;
+  // Ask how many bytes readers list take
+  rv = SCardListReaders(hContext, NULL, NULL, &dwReaders);
+  if (rv < 0)
+    goto pcsc_error;
+  // Then allocate and fill mszReaders
+  char* mszReaders = malloc(dwReaders);
+  rv = SCardListReaders(hContext, NULL, mszReaders, &dwReaders);
   if (rv < 0)
     goto pcsc_error;
 
@@ -66,7 +71,6 @@ main(int argc, char *argv[])
   for (reader = mszReaders;
        dwReaders > 0;
        l = strlen(reader) + 1, dwReaders -= l, reader += l) {
-
     if (strcmp(IFDNFC_READER_NAME, reader) <= 0)
       break;
   }
