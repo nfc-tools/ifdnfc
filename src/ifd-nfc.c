@@ -439,11 +439,19 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
         ifdnfc->slot.present = false;
         if (nfc_initiator_deselect_target(ifdnfc->device) < 0) {
           Log2(PCSC_LOG_ERROR, "Could not deselect NFC target (%s).", nfc_strerror(ifdnfc->device));
+          *AtrLength = 0;
           return IFD_ERROR_POWER_ACTION;
         }
         if (!ifdnfc_reselect_target(ifdnfc)) {
+          *AtrLength = 0;
           return IFD_ERROR_POWER_ACTION;
         }
+        // In contactless, ATR on warm reset is always same as on cold reset
+        if (*AtrLength < ifdnfc->slot.atr_len)
+          return IFD_COMMUNICATION_ERROR;
+        memcpy(Atr, ifdnfc->slot.atr, ifdnfc->slot.atr_len);
+        // memset(Atr + ifdnfc->slot.atr_len, 0, *AtrLength - ifd_slot.atr_len);
+        *AtrLength = ifdnfc->slot.atr_len;
         return IFD_SUCCESS;
       }
       break;
