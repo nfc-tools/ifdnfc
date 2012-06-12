@@ -38,6 +38,7 @@ main(int argc, char *argv[])
   DWORD dwSendLength;
   BYTE pbRecvBuffer[1];
   DWORD dwActiveProtocol, dwRecvLength, dwReaders;
+  char* mszReaders = NULL;
 
   if (argc == 1 ||
       (argc == 2 && (strncmp(argv[1], "yes", strlen("yes")) == 0)))
@@ -62,7 +63,7 @@ main(int argc, char *argv[])
   if (rv < 0)
     goto pcsc_error;
   // Then allocate and fill mszReaders
-  char* mszReaders = malloc(dwReaders);
+  mszReaders = malloc(dwReaders);
   rv = SCardListReaders(hContext, NULL, mszReaders, &dwReaders);
   if (rv < 0)
     goto pcsc_error;
