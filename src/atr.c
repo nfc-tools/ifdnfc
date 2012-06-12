@@ -54,8 +54,8 @@ int get_atr(enum atr_modulation modulation,
           hb_len = inlen - idx;
           memcpy(hb, in + idx, hb_len);
 
-          Log3(PCSC_LOG_DEBUG, "Found %u interface byte(s)"
-               " and %u historical byte(s)",
+          Log3(PCSC_LOG_DEBUG, "Found %zu interface byte(s)"
+               " and %zu historical byte(s)",
                idx - 2, hb_len);
         } else {
           hb_len = 0;
