@@ -26,8 +26,9 @@
 #define IFDNFC_IS_ACTIVE     1
 #define IFDNFC_IS_INACTIVE   0
 
-#define IFDNFC_SET_ACTIVE    1
-#define IFDNFC_SET_INACTIVE  0
-#define IFDNFC_GET_STATUS    3
+#define IFDNFC_SET_INACTIVE      0
+#define IFDNFC_SET_ACTIVE        1
+#define IFDNFC_SET_ACTIVE_SE     2
+#define IFDNFC_GET_STATUS        3
 
 #endif

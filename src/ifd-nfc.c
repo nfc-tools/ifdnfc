@@ -51,6 +51,7 @@ struct ifd_device {
   nfc_device *device;
   struct ifd_slot slot;
   bool connected;
+  bool secure_element_as_card;
   DWORD Lun;
 };
 
@@ -105,9 +106,11 @@ static bool ifdnfc_target_to_atr(struct ifd_device *ifdnfc)
       if (!get_atr(ATR_ISO14443A_106,
                    ifdnfc->slot.target.nti.nai.abtAts, ifdnfc->slot.target.nti.nai.szAtsLen,
                    (unsigned char *) ifdnfc->slot.atr, &(ifdnfc->slot.atr_len))) {
+        Log1(PCSC_LOG_DEBUG, "get_atr: FAIL");
         ifdnfc->slot.atr_len = 0;
         return false;
       }
+      Log1(PCSC_LOG_DEBUG, "get_atr: OK");
       break;
     case NMT_ISO14443B:
       // First ATQB byte always equal to 0x50
@@ -166,6 +169,45 @@ static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc)
       break;
   }
   return false;
+}
+
+static bool ifdnfc_se_is_available(struct ifd_device *ifdnfc)
+{
+  if (!ifdnfc->connected)
+    return false;
+
+  if (ifdnfc->slot.present && ifdnfc->slot.powered)
+    return true; // SE is considered as wired, so it is always available once detected as present
+
+  if (nfc_initiator_init_secure_element(ifdnfc->device) < 0) {
+    Log2(PCSC_LOG_ERROR, "Could not initialize secure element mode. (%s)", nfc_strerror(ifdnfc->device));
+    ifdnfc->slot.present = false;
+    return false;
+  }
+  // Let the reader only try once to find a tag
+  if (nfc_device_set_property_bool(ifdnfc->device, NP_INFINITE_SELECT, false) < 0) {
+    ifdnfc->slot.present = false;
+    return false;
+  }
+  // Read the SAM's info
+  const nfc_modulation nmSAM = {
+    .nmt = NMT_ISO14443A,
+    .nbr = NBR_106,
+  };
+
+  int res;
+  if ((res = nfc_initiator_select_passive_target(ifdnfc->device, nmSAM, NULL, 0, &(ifdnfc->slot.target))) < 0) {
+    Log2(PCSC_LOG_ERROR, "Could not select secure element. (%s)", nfc_strerror(ifdnfc->device));
+    ifdnfc->slot.present = false;
+    return false;
+  } else if (res == 0) {
+    Log2(PCSC_LOG_ERROR, "No secure element available. (%s)", nfc_strerror(ifdnfc->device));
+    ifdnfc->slot.present = false;
+    return false;
+  } // else
+  Log1(PCSC_LOG_DEBUG, "Secure element selected.");
+  ifdnfc_target_to_atr(ifdnfc);
+  ifdnfc->slot.present = true;
 }
 
 static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
@@ -457,7 +499,7 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
       break;
     case IFD_POWER_UP:
       // IFD_POWER_UP: Power up the card (store and return Atr and AtrLength)
-      if (ifdnfc_target_is_available(ifdnfc)) {
+      if ((ifdnfc->secure_element_as_card)&&(ifdnfc_se_is_available(ifdnfc))||ifdnfc_target_is_available(ifdnfc)) {
         if (*AtrLength < ifdnfc->slot.atr_len)
           return IFD_COMMUNICATION_ERROR;
         memcpy(Atr, ifdnfc->slot.atr, ifdnfc->slot.atr_len);
@@ -524,6 +566,8 @@ IFDHICCPresence(DWORD Lun)
   struct ifd_device *ifdnfc = &ifd_devices[device_index];
   if (!ifdnfc->connected)
     return IFD_ICC_NOT_PRESENT;
+  if (ifdnfc->secure_element_as_card)
+    return ifdnfc->slot.present ? IFD_SUCCESS : IFD_ICC_NOT_PRESENT; // If available once, available forever :)
   return ifdnfc_target_is_available(ifdnfc) ? IFD_SUCCESS : IFD_ICC_NOT_PRESENT;
 }
 
@@ -545,7 +589,9 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
         return IFD_COMMUNICATION_ERROR;
 
       switch (*TxBuffer) {
-        case IFDNFC_SET_ACTIVE: {
+        case IFDNFC_SET_ACTIVE:
+        case IFDNFC_SET_ACTIVE_SE:
+        {
           uint16_t u16ConnstringLength;
           if (TxLength < (1 + sizeof(u16ConnstringLength)))
             return IFD_COMMUNICATION_ERROR;
@@ -556,6 +602,7 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
           ifdnfc->device = nfc_open(NULL, ifd_connstring);
           ifdnfc->connected = (ifdnfc->device) ? true : false;
           ifdnfc->Lun = Lun;
+          ifdnfc->secure_element_as_card = (TxBuffer[0] == IFDNFC_SET_ACTIVE_SE);
         }
         break;
         case IFDNFC_SET_INACTIVE:
@@ -572,7 +619,7 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
           return IFD_COMMUNICATION_ERROR;
       }
 
-      if (ifdnfc->connected) {
+      if ((ifdnfc->connected)&&((!ifdnfc->secure_element_as_card)||ifdnfc_se_is_available(ifdnfc))) {
         Log1(PCSC_LOG_INFO, "IFD-handler for libnfc is active.");
         RxBuffer[0] = IFDNFC_IS_ACTIVE;
         const uint16_t u16ConnstringLength = strlen(ifd_connstring) + 1;

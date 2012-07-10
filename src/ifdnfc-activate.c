@@ -45,6 +45,8 @@ main(int argc, char *argv[])
     pbSendBuffer[0] = IFDNFC_SET_ACTIVE;
   else if (argc == 2 && (strncmp(argv[1], "no", strlen("no")) == 0))
     pbSendBuffer[0] = IFDNFC_SET_INACTIVE;
+  else if (argc == 2 && (strncmp(argv[1], "se", strlen("se")) == 0))
+    pbSendBuffer[0] = IFDNFC_SET_ACTIVE_SE;
   else if (argc == 2 && (strncmp(argv[1], "status", strlen("status")) == 0))
     pbSendBuffer[0] = IFDNFC_GET_STATUS;
   else {
@@ -87,7 +89,8 @@ main(int argc, char *argv[])
   if (rv < 0)
     goto pcsc_error;
 
-  if (pbSendBuffer[0] == IFDNFC_SET_ACTIVE) {
+  if ((pbSendBuffer[0] == IFDNFC_SET_ACTIVE) || (pbSendBuffer[0] == IFDNFC_SET_ACTIVE_SE))  {
+    const BYTE command = pbSendBuffer[0];
     // To correctly probe NFC devices, ifdnfc must be disactivated first
     pbSendBuffer[0] = IFDNFC_SET_INACTIVE;
     dwSendLength = 1;
@@ -98,7 +101,7 @@ main(int argc, char *argv[])
       goto pcsc_error;
     }
 
-    pbSendBuffer[0] = IFDNFC_SET_ACTIVE;
+    pbSendBuffer[0] = command;
     // Initialize libnfc
     nfc_init(NULL);
     // Allocate nfc_connstring array
