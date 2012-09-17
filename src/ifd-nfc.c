@@ -208,6 +208,8 @@ static bool ifdnfc_se_is_available(struct ifd_device *ifdnfc)
   Log1(PCSC_LOG_DEBUG, "Secure element selected.");
   ifdnfc_target_to_atr(ifdnfc);
   ifdnfc->slot.present = true;
+
+  return true;
 }
 
 static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
