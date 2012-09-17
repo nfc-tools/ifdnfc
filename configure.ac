@@ -49,7 +49,7 @@ LIBS="$saved_LIBS"
 
 # --enable-usbdropdir=DIR
 AC_ARG_ENABLE(usbdropdir,
-	AC_HELP_STRING([--enable-usbdropdir=DIR],[directory containing USB
+	AS_HELP_STRING([--enable-usbdropdir=DIR],[directory containing USB
 	drivers (default to pcscd config or $(prefix)/pcsc/drivers)]),
 	[usbdropdir="${enableval}"], [usbdropdir=false])
 if test "${usbdropdir}" = false ; then
