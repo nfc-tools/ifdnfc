@@ -7,6 +7,7 @@ AC_CONFIG_SRCDIR([src/ifd-nfc.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
+AM_PROG_AR
 LT_INIT
 
 # Checks for programs.
