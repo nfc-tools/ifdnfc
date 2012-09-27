@@ -67,7 +67,7 @@ static const nfc_modulation supported_modulations[] = {
 
 static int lun2device_index(DWORD Lun)
 {
-  int i;
+  size_t i;
   // Find slot containing Lun
   for (i = 0; i < sizeof(ifd_devices); i++)
     if (ifd_devices[i].Lun == Lun) {
