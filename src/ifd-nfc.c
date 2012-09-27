@@ -164,6 +164,13 @@ static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc)
       }
     }
     break;
+	case NMT_DEP:
+	case NMT_FELICA:
+	case NMT_ISO14443B2CT:
+	case NMT_ISO14443B2SR:
+	case NMT_ISO14443B:
+	case NMT_ISO14443BI:
+	case NMT_JEWEL:
     default:
       // TODO Implement me :)
       break;
