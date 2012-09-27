@@ -52,7 +52,7 @@ struct ifd_device {
   struct ifd_slot slot;
   bool connected;
   bool secure_element_as_card;
-  DWORD Lun;
+  int Lun;
 };
 
 #define IFDNFC_MAX_DEVICES 10
