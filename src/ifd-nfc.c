@@ -318,7 +318,7 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
 
   int res = sscanf(DeviceName, "usb:%[^:]:%[^:]:%[^:]:%[^:]", vidpid, hpdriver, ifn, devpath);
   if (res == 4) {
-    int res = sscanf(devpath, "/dev/bus/usb/%[^/]/%[^/]", dirname, filename);
+    res = sscanf(devpath, "/dev/bus/usb/%[^/]/%[^/]", dirname, filename);
     if (res == 2) {
       strcpy(ifd_connstring, "usb:xxx:xxx");
       memcpy(ifd_connstring + 4, dirname, 3);
