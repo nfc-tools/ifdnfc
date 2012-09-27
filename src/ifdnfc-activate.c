@@ -198,9 +198,7 @@ main(int argc, char *argv[])
   if (rv < 0)
     goto pcsc_error;
 
-  rv = SCardFreeMemory(hContext, mszReaders);
-  if (rv < 0)
-    goto pcsc_error;
+  free(mszReaders);
 
   exit(EXIT_SUCCESS);
 
@@ -208,7 +206,7 @@ pcsc_error:
   puts(pcsc_stringify_error(rv));
 error:
   if (mszReaders)
-    SCardFreeMemory(hContext, mszReaders);
+    free(mszReaders);
 
   exit(EXIT_FAILURE);
 }
