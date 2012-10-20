@@ -17,13 +17,16 @@ EXTRA_DIST = reader.conf.in
 
 ifdnfcdropdir = $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)
 
-install: install_ifdnfc install_ifdnfc_activate
+install-data-local: install_ifdnfc_config
+
+install-exec-local: install_ifdnfc install_ifdnfc_activate
 
 install_ifdnfc: libifdnfc.la
 	$(mkinstalldirs) $(ifdnfcdropdir)/
-	cp Info.plist $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/
 	cp .libs/$(IFDNFC_LIB) $(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)
 
+install_ifdnfc_config:
+	cp Info.plist $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/
 	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)/reader.conf.d
 	sed "s#TARGETNAME#`awk '/IFDNFC_READER_NAME/ {print $$3}' $(srcdir)/ifd-nfc.h`#;\
 	s#TARGETPATH#$(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)#"   $(srcdir)/reader.conf.in \
@@ -34,11 +37,13 @@ install_ifdnfc_activate: ifdnfc-activate
 	$(LIBTOOL) --mode=install cp ifdnfc-activate $(DESTDIR)$(bindir)
 
 
-uninstall: uninstall_ifdnfc uninstall_ifdnfc_activate
+uninstall-local: uninstall_ifdnfc uninstall_ifdnfc_config uninstall_ifdnfc_activate
 
 uninstall_ifdnfc:
-	rm -f $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/Info.plist \
-	    $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/$(IFDNFC_LIB)
+	rm -f $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/Info.plist
+
+uninstall_ifdnfc_config:
+	rm -f $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/$(IFDNFC_LIB)
 
 uninstall_ifdnfc_activate:
 	rm -f $(DESTDIR)$(bindir)/ifdnfc-activate
