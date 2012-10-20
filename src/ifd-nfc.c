@@ -146,7 +146,7 @@ static bool ifdnfc_target_to_atr(struct ifd_device *ifdnfc)
   return true;
 }
 
-static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc)
+static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc, bool warm)
 {
   switch (ifdnfc->slot.target.nm.nmt) {
     case NMT_ISO14443A:
@@ -156,11 +156,21 @@ static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc)
         return false;
       }
       nfc_target nt;
-      if (nfc_initiator_select_passive_target(ifdnfc->device, ifdnfc->slot.target.nm, ifdnfc->slot.target.nti.nai.abtUid, ifdnfc->slot.target.nti.nai.szUidLen, &nt) < 1) {
+      // the UID might change when the field was lost. We don't reuse it for a cold reselection
+      if (nfc_initiator_select_passive_target(ifdnfc->device, ifdnfc->slot.target.nm, warm ? ifdnfc->slot.target.nti.nai.abtUid : NULL, warm ? ifdnfc->slot.target.nti.nai.szUidLen : 0, &nt) < 1) {
         Log3(PCSC_LOG_DEBUG, "Could not select target %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
         ifdnfc->slot.present = false;
         return false;
       } else {
+        if (!warm) {
+          // for a warm reset compare the ATS
+          if (ifdnfc->slot.target.nti.nai.szAtsLen == nt.nti.nai.szAtsLen
+              && 0 == memcmp(ifdnfc->slot.target.nti.nai.abtAts, nt.nti.nai.abtAts, nt.nti.nai.szAtsLen)) {
+            return true;
+          } else {
+            return false;
+          }
+        }
         return true;
       }
       break;
@@ -240,7 +250,7 @@ static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
         ifdnfc->slot.present = false;
         return false;
       }
-      if (!ifdnfc_reselect_target(ifdnfc)) {
+      if (!ifdnfc_reselect_target(ifdnfc, false)) {
         Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
         ifdnfc->slot.present = false;
         return false;
@@ -500,7 +510,7 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
           *AtrLength = 0;
           return IFD_ERROR_POWER_ACTION;
         }
-        if (!ifdnfc_reselect_target(ifdnfc)) {
+        if (!ifdnfc_reselect_target(ifdnfc, true)) {
           *AtrLength = 0;
           return IFD_ERROR_POWER_ACTION;
         }
@@ -515,7 +525,7 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
       break;
     case IFD_POWER_UP:
       // IFD_POWER_UP: Power up the card (store and return Atr and AtrLength)
-      if ((ifdnfc->secure_element_as_card)&&(ifdnfc_se_is_available(ifdnfc))||ifdnfc_target_is_available(ifdnfc)) {
+      if ((ifdnfc->secure_element_as_card) && (ifdnfc_se_is_available(ifdnfc)) || ifdnfc_target_is_available(ifdnfc)) {
         if (*AtrLength < ifdnfc->slot.atr_len)
           return IFD_COMMUNICATION_ERROR;
         memcpy(Atr, ifdnfc->slot.atr, ifdnfc->slot.atr_len);
@@ -677,8 +687,7 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
 
       switch (*TxBuffer) {
         case IFDNFC_SET_ACTIVE:
-        case IFDNFC_SET_ACTIVE_SE:
-        {
+        case IFDNFC_SET_ACTIVE_SE: {
           uint16_t u16ConnstringLength;
           if (TxLength < (1 + sizeof(u16ConnstringLength)))
             return IFD_COMMUNICATION_ERROR;
@@ -706,7 +715,7 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
           return IFD_COMMUNICATION_ERROR;
       }
 
-      if ((ifdnfc->connected)&&((!ifdnfc->secure_element_as_card)||ifdnfc_se_is_available(ifdnfc))) {
+      if ((ifdnfc->connected) && ((!ifdnfc->secure_element_as_card) || ifdnfc_se_is_available(ifdnfc))) {
         Log1(PCSC_LOG_INFO, "IFD-handler for libnfc is active.");
         RxBuffer[0] = IFDNFC_IS_ACTIVE;
         const uint16_t u16ConnstringLength = strlen(ifd_connstring) + 1;
