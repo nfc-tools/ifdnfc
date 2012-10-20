@@ -126,8 +126,7 @@ static bool ifdnfc_target_to_atr(struct ifd_device *ifdnfc)
 
       // Store the Protocol Info
       memcpy(&atqb[9], ifdnfc->slot.target.nti.nbi.abtProtocolInfo, 3);
-      // FixMe: sth fishy here, why get_atr(ATR_ISO14443A_106??
-      if (!get_atr(ATR_ISO14443A_106, atqb, sizeof(atqb),
+      if (!get_atr(ATR_ISO14443B_106, atqb, sizeof(atqb),
                    (unsigned char *) ifdnfc->slot.atr, &(ifdnfc->slot.atr_len)))
         ifdnfc->slot.atr_len = 0;
       return false;
