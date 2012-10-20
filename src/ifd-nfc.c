@@ -41,7 +41,7 @@
 
 struct ifd_slot {
   bool present;
-  bool powered;
+  bool initiated;
   nfc_target target;
   unsigned char atr[MAX_ATR_SIZE];
   size_t atr_len;
@@ -193,7 +193,7 @@ static bool ifdnfc_se_is_available(struct ifd_device *ifdnfc)
   if (!ifdnfc->connected)
     return false;
 
-  if (ifdnfc->slot.present && ifdnfc->slot.powered)
+  if (ifdnfc->slot.present && ifdnfc->slot.initiated)
     return true; // SE is considered as wired, so it is always available once detected as present
 
   if (nfc_initiator_init_secure_element(ifdnfc->device) < 0) {
@@ -235,7 +235,7 @@ static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
     return false;
 
   if (ifdnfc->slot.present) {
-    if (ifdnfc->slot.powered) {
+    if (ifdnfc->slot.initiated) {
       // Target is active and just need a ping-like command (handled by libnfc)
       if (nfc_initiator_target_is_present(ifdnfc->device, ifdnfc->slot.target) < 0) {
         Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
@@ -244,12 +244,14 @@ static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
       }
       return true;
     } else {
-      // Target is not powered and need to be wakeup
+      // Target is not initiated and need to be wakeup
       if (nfc_initiator_init(ifdnfc->device) < 0) {
         Log2(PCSC_LOG_ERROR, "Could not initialize initiator mode. (%s)", nfc_strerror(ifdnfc->device));
         ifdnfc->slot.present = false;
         return false;
       }
+      // To prevent from multiple init
+      ifdnfc->slot.initiated = true;
       if (!ifdnfc_reselect_target(ifdnfc, false)) {
         Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
         ifdnfc->slot.present = false;
@@ -264,13 +266,13 @@ static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
 
   // ifdnfc->slot not powered means the field is not active, so when no target
   // is available ifdnfc needs to generated a field
-  if (!ifdnfc->slot.powered) {
+  if (!ifdnfc->slot.initiated) {
     if (nfc_initiator_init(ifdnfc->device) < 0) {
       Log2(PCSC_LOG_ERROR, "Could not init NFC device in initiator mode (%s).", nfc_strerror(ifdnfc->device));
       return false;
     }
     // To prevent from multiple init
-    ifdnfc->slot.powered = true;
+    ifdnfc->slot.initiated = true;
   }
 
   // find new connection
@@ -280,7 +282,7 @@ static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
       ifdnfc_target_to_atr(ifdnfc);
       ifdnfc->slot.present = true;
       // XXX Should it be on or off after target selection ?
-      ifdnfc->slot.powered = true;
+      ifdnfc->slot.initiated = true;
       Log2(PCSC_LOG_INFO, "Connected to %s.", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt));
       return true;
     }
@@ -490,7 +492,6 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
         Log2(PCSC_LOG_ERROR, "Could not idle NFC device (%s).", nfc_strerror(ifdnfc->device));
         return IFD_ERROR_POWER_ACTION;
       }
-      ifdnfc->slot.powered = false;
       *AtrLength = 0;
       return IFD_SUCCESS;
       break;
