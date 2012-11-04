@@ -3,7 +3,7 @@ IFDNFC_BUNDLE = ifdnfc.bundle
 
 lib_LTLIBRARIES = libifdnfc.la
 libifdnfc_la_SOURCES = ifd-nfc.c atr.c
-libifdnfc_la_LIBADD = $(LIBNFC_LIBS) $(PCSC_LIBS)
+libifdnfc_la_LIBADD = $(LIBNFC_LIBS)
 libifdnfc_la_CFLAGS = $(LIBNFC_CFLAGS) $(PCSC_CFLAGS)
 
 bin_PROGRAMS = ifdnfc-activate
