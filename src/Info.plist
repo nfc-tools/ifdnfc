@@ -65,12 +65,12 @@
 
 	<key>ifdFriendlyName</key>
 	<array>
-		<string>Philips PN531 Contactless Reader & NFC</string>
-		<string>NXP PN533 Contactless Reader & NFC</string>
-		<string>SCM Micro SCL3711 Contactless Reader & NFC</string>
-		<string>Sony PN531 Contactless Reader & NFC</string>
+		<string>Philips PN531 Contactless Reader &amp; NFC</string>
+		<string>NXP PN533 Contactless Reader &amp; NFC</string>
+		<string>SCM Micro SCL3711 Contactless Reader &amp; NFC</string>
+		<string>Sony PN531 Contactless Reader &amp; NFC</string>
 		<string>ASK LoGO Contactless Reader</string>
-		<string>Sony FeliCa S360 (PaSoRi) Contactless Reader & NFC</string>
+		<string>Sony FeliCa S360 (PaSoRi) Contactless Reader &amp; NFC</string>
 	</array>
 
 	<key>Copyright</key>
