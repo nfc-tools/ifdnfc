@@ -78,7 +78,7 @@ main(int argc, char *argv[])
       break;
   }
   if (dwReaders <= 0) {
-    printf("Could not find %s\n", IFDNFC_READER_NAME);
+    printf("Could not find a reader named: %s\n", IFDNFC_READER_NAME);
     rv = SCARD_E_NO_READERS_AVAILABLE;
     goto pcsc_error;
   }
