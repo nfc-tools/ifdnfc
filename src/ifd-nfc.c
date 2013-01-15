@@ -126,7 +126,7 @@ static bool ifdnfc_target_to_atr(struct ifd_device *ifdnfc)
 
       // Store the Protocol Info
       memcpy(&atqb[9], ifdnfc->slot.target.nti.nbi.abtProtocolInfo, 3);
-
+      // FixMe: sth fishy here, why get_atr(ATR_ISO14443A_106??
       if (!get_atr(ATR_ISO14443A_106, atqb, sizeof(atqb),
                    (unsigned char *) ifdnfc->slot.atr, &(ifdnfc->slot.atr_len)))
         ifdnfc->slot.atr_len = 0;
@@ -150,7 +150,7 @@ static bool ifdnfc_target_to_atr(struct ifd_device *ifdnfc)
 static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc)
 {
   switch (ifdnfc->slot.target.nm.nmt) {
-    case NMT_ISO14443A: {
+    case NMT_ISO14443A:
       if (nfc_device_set_property_bool(ifdnfc->device, NP_INFINITE_SELECT, false) < 0) {
         Log2(PCSC_LOG_ERROR, "Could not set infinite-select property (%s)", nfc_strerror(ifdnfc->device));
         ifdnfc->slot.present = false;
@@ -164,15 +164,14 @@ static bool ifdnfc_reselect_target(struct ifd_device *ifdnfc)
       } else {
         return true;
       }
-    }
-    break;
-	case NMT_DEP:
-	case NMT_FELICA:
-	case NMT_ISO14443B2CT:
-	case NMT_ISO14443B2SR:
-	case NMT_ISO14443B:
-	case NMT_ISO14443BI:
-	case NMT_JEWEL:
+      break;
+    case NMT_DEP:
+    case NMT_FELICA:
+    case NMT_ISO14443B2CT:
+    case NMT_ISO14443B2SR:
+    case NMT_ISO14443B:
+    case NMT_ISO14443BI:
+    case NMT_JEWEL:
     default:
       // TODO Implement me :)
       break;
@@ -534,6 +533,7 @@ RESPONSECODE
 IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
                   TxLength, PUCHAR RxBuffer, PDWORD RxLength, PSCARD_IO_HEADER RecvPci)
 {
+  // FixMe: quid RxBuffer allocation? RxLength seems arbitrarily large
   (void) Lun;
   int device_index = lun2device_index(Lun);
   if (device_index < 0)
@@ -548,6 +548,75 @@ IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
     return IFD_ICC_NOT_PRESENT;
   }
 
+  if ((TxBuffer[0] == 0xFF) && (TxBuffer[1] == 0xCA)) {
+    // Get Data
+    LogXxd(PCSC_LOG_INFO, "Intercepting GetData\n", TxBuffer, TxLength);
+    size_t Le = TxBuffer[4];
+    int RxOff = 0;
+    uint8_t * Data;
+    size_t DataLength;
+    RecvPci->Protocol = 1; // needed??
+    if (TxLength != 5) {
+      // Wrong length
+      RxBuffer[RxOff++] = 0x67;
+      RxBuffer[RxOff++] = 0x00;
+      *RxLength = RxOff;
+      return IFD_SUCCESS;
+    }
+    switch (TxBuffer[2]) {
+      case 0x00: // Get UID
+        Data = ifdnfc->slot.target.nti.nai.abtUid;
+        DataLength = ifdnfc->slot.target.nti.nai.szUidLen;
+        break;
+      case 0x01: // Get ATS hist bytes
+
+        if (ifdnfc->slot.target.nm.nmt == NMT_ISO14443A) {
+          Data = ifdnfc->slot.target.nti.nai.abtAts;
+          DataLength = ifdnfc->slot.target.nti.nai.szAtsLen;
+          if (DataLength) {
+            size_t idx = 1;
+            /* Bits 5 to 7 tell if TA1/TB1/TC1 are available */
+            if (Data[0] & 0x10) idx++; // TA
+            if (Data[0] & 0x20) idx++; // TB
+            if (Data[0] & 0x40) idx++; // TC
+            if (DataLength > idx) {
+              DataLength -= idx;
+              Data += idx;
+            } else {
+              DataLength = 0;
+            }
+          }
+          break;
+        } // else:
+      default:
+        // Function not supported
+        RxBuffer[RxOff++] = 0x6A;
+        RxBuffer[RxOff++] = 0x81;
+        *RxLength = RxOff;
+        return IFD_SUCCESS;
+    }
+    if (Le == 0) Le = DataLength;
+    if (Le < DataLength) {
+      // Wrong length
+      RxBuffer[RxOff++] = 0x6C;
+      RxBuffer[RxOff++] = DataLength;
+      *RxLength = RxOff;
+      return IFD_SUCCESS;
+    }
+    RxOff = DataLength;
+    memcpy(RxBuffer, Data, RxOff);
+    if (Le > RxOff) {
+      // End of data reached before Le bytes
+      for (;RxOff<Le;) RxBuffer[RxOff++] = 0;
+      RxBuffer[RxOff++] = 0x62;
+      RxBuffer[RxOff++] = 0x82;
+    } else {
+      RxBuffer[RxOff++] = 0x90;
+      RxBuffer[RxOff++] = 0x00;
+    }
+    *RxLength = RxOff;
+    return IFD_SUCCESS;
+  }
   LogXxd(PCSC_LOG_INFO, "Sending to NFC target\n", TxBuffer, TxLength);
 
   size_t tl = TxLength, rl = *RxLength;
