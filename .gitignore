@@ -1,7 +1,9 @@
+*~
 INSTALL
 Makefile
 Makefile.in
 aclocal.m4
+ar-lib
 autom4te.cache/
 compile
 config.guess
@@ -15,7 +17,6 @@ depcomp
 install-sh
 libtool
 ltmain.sh
-m4/
 missing
 src/.deps/
 src/.libs/
