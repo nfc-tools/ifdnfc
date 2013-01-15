@@ -478,11 +478,17 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
   switch (Action) {
     case IFD_POWER_DOWN:
       // IFD_POWER_DOWN: Power down the card (Atr and AtrLength should be zeroed)
+// Warning, this means putting card to HALT, not reader to IDLE or RFoff
+// FixMe: Disabling entirely power-down for now because of spurious RFoff/RFon during operation
+// (due also to absence of slot.powered=true after IFD_POWER_UP)
+// Test case: LoGO + JCOP with Vonjeek applet + mrpkey.py (RFIDIOt)
+/*
       if (nfc_idle(ifdnfc->device) < 0) {
         Log2(PCSC_LOG_ERROR, "Could not idle NFC device (%s).", nfc_strerror(ifdnfc->device));
         return IFD_ERROR_POWER_ACTION;
       }
       ifdnfc->slot.powered = false;
+*/
       *AtrLength = 0;
       return IFD_SUCCESS;
       break;
