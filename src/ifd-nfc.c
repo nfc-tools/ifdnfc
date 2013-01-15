@@ -621,8 +621,9 @@ IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
 
   size_t tl = TxLength, rl = *RxLength;
   int res;
+  // timeout pushed to 5000ms, cf FWTmax in ISO14443-4
   if ((res = nfc_initiator_transceive_bytes(ifdnfc->device, TxBuffer, tl,
-                                            RxBuffer, rl, -1)) < 0) {
+                                            RxBuffer, rl, 5000)) < 0) {
     Log2(PCSC_LOG_ERROR, "Could not transceive data (%s).",
          nfc_strerror(ifdnfc->device));
     *RxLength = 0;
