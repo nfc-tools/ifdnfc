@@ -55,6 +55,8 @@ struct ifd_device {
   int Lun;
 };
 
+nfc_context *context = NULL;
+
 #define IFDNFC_MAX_DEVICES 10
 static struct ifd_device ifd_devices[IFDNFC_MAX_DEVICES];
 static bool ifdnfc_initialized = false;
@@ -291,7 +293,7 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
     Log1(PCSC_LOG_DEBUG, "Driver initialization");
     for (i = 0; i < IFDNFC_MAX_DEVICES; i++)
       ifd_devices[i].Lun = -1;
-    nfc_init(NULL);
+    nfc_init(&context);
     ifdnfc_initialized = true;
     // First slot is free
     device_index = 0;
@@ -330,7 +332,7 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
       strcpy(ifd_connstring, "usb:xxx:xxx");
       memcpy(ifd_connstring + 4, dirname, 3);
       memcpy(ifd_connstring + 8, filename, 3);
-      ifdnfc->device = nfc_open(NULL, ifd_connstring);
+      ifdnfc->device = nfc_open(context, ifd_connstring);
       ifdnfc->connected = (ifdnfc->device) ? true : false;
       ifdnfc->Lun = Lun;
     }
@@ -376,7 +378,8 @@ IFDHCloseChannel(DWORD Lun)
       // yes so don't exit libnfc
       return IFD_SUCCESS;
   // No more device, we can shutdown libnfc
-  nfc_exit(NULL);
+  nfc_exit(context);
+  context = NULL;
   return IFD_SUCCESS;
 }
 
@@ -608,7 +611,7 @@ IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
           if ((TxLength - (1 + sizeof(u16ConnstringLength))) != u16ConnstringLength)
             return IFD_COMMUNICATION_ERROR;
           memcpy(ifd_connstring, TxBuffer + (1 + sizeof(u16ConnstringLength)), u16ConnstringLength);
-          ifdnfc->device = nfc_open(NULL, ifd_connstring);
+          ifdnfc->device = nfc_open(context, ifd_connstring);
           ifdnfc->connected = (ifdnfc->device) ? true : false;
           ifdnfc->Lun = Lun;
           ifdnfc->secure_element_as_card = (TxBuffer[0] == IFDNFC_SET_ACTIVE_SE);

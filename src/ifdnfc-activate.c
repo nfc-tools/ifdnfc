@@ -103,17 +103,18 @@ main(int argc, char *argv[])
 
     pbSendBuffer[0] = command;
     // Initialize libnfc
-    nfc_init(NULL);
+    nfc_context *context;
+    nfc_init(&context);
     // Allocate nfc_connstring array
     nfc_connstring connstrings[MAX_DEVICE_COUNT];
     // List devices
-    size_t szDeviceFound = nfc_list_devices(NULL, connstrings, MAX_DEVICE_COUNT);
+    size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
 
     int connstring_index = -1;
     switch (szDeviceFound) {
       case 0:
         fprintf(stderr, "Unable to activate ifdnfc: no NFC device found.\n");
-        nfc_exit(NULL);
+        nfc_exit(context);
         goto error;
         break;
       case 1:
@@ -121,10 +122,10 @@ main(int argc, char *argv[])
         connstring_index = 0;
         break;
       default:
-        // More than one available NFC devices, purpose a shell menu:
+        // More than one available NFC devices, propose a shell menu:
         printf("%d NFC devices found, please select one:\n", (int)szDeviceFound);
         for (size_t i = 0; i < szDeviceFound; i++) {
-          nfc_device *pnd = nfc_open(NULL, connstrings[i]);
+          nfc_device *pnd = nfc_open(context, connstrings[i]);
           if (pnd != NULL) {
             printf("[%d] %s\t  (%s)\n", (int)i, nfc_device_get_name(pnd), nfc_device_get_connstring(pnd));
             nfc_close(pnd);
@@ -132,8 +133,8 @@ main(int argc, char *argv[])
             fprintf(stderr, "nfc_open failed for %s\n", connstrings[i]);
           }
         }
-        // libnfc isn't be needed anymore
-        nfc_exit(NULL);
+        // libnfc isn't needed anymore
+        nfc_exit(context);
         printf(">> ");
         // Take user's choice
         if (1 != scanf("%d", &connstring_index)) {
