@@ -26,6 +26,7 @@ install_ifdnfc: libifdnfc.la
 	cp .libs/$(IFDNFC_LIB) $(ifdnfcdropdir)/$(IFDNFC_LIB).$(VERSION)
 
 install_ifdnfc_config:
+	$(mkinstalldirs) $(ifdnfcdropdir)/
 	cp Info.plist $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/
 	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)/reader.conf.d
 	sed "s#TARGETNAME#`awk '/IFDNFC_READER_NAME/ {print $$3}' $(srcdir)/ifd-nfc.h`#;\
