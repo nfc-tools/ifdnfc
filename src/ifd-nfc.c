@@ -525,7 +525,7 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
       break;
     case IFD_POWER_UP:
       // IFD_POWER_UP: Power up the card (store and return Atr and AtrLength)
-      if ((ifdnfc->secure_element_as_card) && (ifdnfc_se_is_available(ifdnfc)) || ifdnfc_target_is_available(ifdnfc)) {
+      if (((ifdnfc->secure_element_as_card) && (ifdnfc_se_is_available(ifdnfc))) || ifdnfc_target_is_available(ifdnfc)) {
         if (*AtrLength < ifdnfc->slot.atr_len)
           return IFD_COMMUNICATION_ERROR;
         memcpy(Atr, ifdnfc->slot.atr, ifdnfc->slot.atr_len);
