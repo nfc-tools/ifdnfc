@@ -439,6 +439,9 @@ IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
       *Length = 1;
       break;
     case TAG_IFD_STOP_POLLING_THREAD:
+	case TAG_IFD_POLLING_THREAD_WITH_TIMEOUT:
+	case TAG_IFD_POLLING_THREAD_KILLABLE:
+	  return IFD_ERROR_NOT_SUPPORTED;
     default:
       Log3(PCSC_LOG_ERROR, "Tag %08x (%lu) not supported", Tag, (unsigned long) Tag);
       return IFD_ERROR_TAG;
