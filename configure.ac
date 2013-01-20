@@ -129,5 +129,6 @@ DYN_LIB_EXT:          ${DYN_LIB_EXT}
 EOF
 
 AC_CONFIG_FILES([Makefile
+                 src/Info.plist
                  src/Makefile])
 AC_OUTPUT

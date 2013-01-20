@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>libifdnfc.so.0.1.4</string>
+	<string>libifdnfc.@DYN_LIB_EXT@.0.1.4</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.libnfc</string>
 	<key>CFBundleInfoDictionaryVersion</key>
