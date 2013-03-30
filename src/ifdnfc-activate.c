@@ -141,7 +141,7 @@ main(int argc, char *argv[])
         nfc_exit(context);
         printf(">> ");
         // Take user's choice
-        if (1 != scanf("%d", &connstring_index)) {
+        if (1 != scanf("%2d", &connstring_index)) {
           fprintf(stderr, "Value must an integer.\n");
           goto error;
         }

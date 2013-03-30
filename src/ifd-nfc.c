@@ -339,9 +339,9 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
   char *dirname     = malloc(n);
   char *filename    = malloc(n);
 
-  int res = sscanf(DeviceName, "usb:%[^:]:%[^:]:%[^:]:%[^:]", vidpid, hpdriver, ifn, devpath);
+  int res = sscanf(DeviceName, "usb:%4[^:]:%4[^:]:%32[^:]:%32[^:]", vidpid, hpdriver, ifn, devpath);
   if (res == 4) {
-    res = sscanf(devpath, "/dev/bus/usb/%[^/]/%[^/]", dirname, filename);
+    res = sscanf(devpath, "/dev/bus/usb/%3[^/]/%3[^/]", dirname, filename);
     if (res == 2) {
       strcpy(ifd_connstring, "usb:xxx:xxx");
       memcpy(ifd_connstring + 4, dirname, 3);
