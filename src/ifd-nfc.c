@@ -237,7 +237,7 @@ static bool ifdnfc_target_is_available(struct ifd_device *ifdnfc)
   if (ifdnfc->slot.present) {
     if (ifdnfc->slot.initiated) {
       // Target is active and just need a ping-like command (handled by libnfc)
-      if (nfc_initiator_target_is_present(ifdnfc->device, ifdnfc->slot.target) < 0) {
+      if (nfc_initiator_target_is_present(ifdnfc->device, &ifdnfc->slot.target) < 0) {
         Log3(PCSC_LOG_INFO, "Connection lost with %s. (%s)", str_nfc_modulation_type(ifdnfc->slot.target.nm.nmt), nfc_strerror(ifdnfc->device));
         ifdnfc->slot.present = false;
         return false;
