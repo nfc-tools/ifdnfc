@@ -366,6 +366,7 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHCreateChannel(DWORD Lun, DWORD Channel)
 {
   char str[16];
@@ -375,6 +376,7 @@ IFDHCreateChannel(DWORD Lun, DWORD Channel)
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHCloseChannel(DWORD Lun)
 {
   (void) Lun;
@@ -397,6 +399,7 @@ IFDHCloseChannel(DWORD Lun)
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
 {
   Log4(PCSC_LOG_DEBUG, "IFDHGetCapabilities(DWORD Lun (%08x), DWORD Tag (%08x), PDWORD Length (%lu), PUCHAR Value)", Lun, Tag, *Length);
@@ -454,6 +457,7 @@ IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHSetCapabilities(DWORD Lun, DWORD Tag, DWORD Length, PUCHAR Value)
 {
   (void) Lun;
@@ -464,6 +468,7 @@ IFDHSetCapabilities(DWORD Lun, DWORD Tag, DWORD Length, PUCHAR Value)
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol, UCHAR Flags, UCHAR PTS1,
                           UCHAR PTS2, UCHAR PTS3)
 {
@@ -479,6 +484,7 @@ IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol, UCHAR Flags, UCHAR PTS1,
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 {
   (void) Lun;
@@ -551,6 +557,7 @@ IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
                   TxLength, PUCHAR RxBuffer, PDWORD RxLength, PSCARD_IO_HEADER RecvPci)
 {
@@ -659,6 +666,7 @@ IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci, PUCHAR TxBuffer, DWORD
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHICCPresence(DWORD Lun)
 {
   (void) Lun;
@@ -674,6 +682,7 @@ IFDHICCPresence(DWORD Lun)
 }
 
 RESPONSECODE
+// cppcheck-suppress unusedFunction
 IFDHControl(DWORD Lun, DWORD dwControlCode, PUCHAR TxBuffer, DWORD TxLength,
             PUCHAR RxBuffer, DWORD RxLength, LPDWORD pdwBytesReturned)
 {
