@@ -74,7 +74,6 @@ static int lun2device_index(DWORD Lun)
   for (i = 0; i < sizeof(ifd_devices); i++)
     if (ifd_devices[i].Lun == Lun) {
       return i;
-      break;
     }
   // Slot not found
   return -1;
