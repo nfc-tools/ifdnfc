@@ -304,6 +304,10 @@ IFDHCreateChannelByName(DWORD Lun, LPSTR DeviceName)
     for (i = 0; i < IFDNFC_MAX_DEVICES; i++)
       ifd_devices[i].Lun = -1;
     nfc_init(&context);
+    if (context == NULL) {
+      Log1(PCSC_LOG_ERROR, "Unable to init libnfc (malloc)");
+      return IFD_COMMUNICATION_ERROR;
+    }
     ifdnfc_initialized = true;
     // First slot is free
     device_index = 0;
