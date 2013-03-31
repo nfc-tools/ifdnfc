@@ -37,14 +37,8 @@ install_ifdnfc_activate: ifdnfc-activate
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
 	$(LIBTOOL) --mode=install cp ifdnfc-activate $(DESTDIR)$(bindir)
 
-
-uninstall-local: uninstall_ifdnfc uninstall_ifdnfc_config uninstall_ifdnfc_activate
-
-uninstall_ifdnfc:
+uninstall: uninstall-libLTLIBRARIES
 	rm -f $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/Info.plist
-
-uninstall_ifdnfc_config:
-	rm -f $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/$(IFDNFC_LIB)
-
-uninstall_ifdnfc_activate:
+	rm -f $(DESTDIR)$(usbdropdir)/$(IFDNFC_BUNDLE)/Contents/$(BUNDLE_HOST)/$(IFDNFC_LIB).$(VERSION)
 	rm -f $(DESTDIR)$(bindir)/ifdnfc-activate
+	rm -f $(DESTDIR)$(sysconfdir)/reader.conf.d/ifdnfc
