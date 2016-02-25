@@ -16,9 +16,26 @@
  * You should have received a copy of the GNU General Public License along with
  * ifdnfc.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "atr.h"
 #include <string.h>
+
+#ifdef HAVE_DEBUGLOG_H
 #include <debuglog.h>
+#else
+
+#define LogXxd(priority, fmt, data1, data2) do { } while(0)
+#define Log0(priority) do { } while(0)
+#define Log1(priority, fmt) do { } while(0)
+#define Log2(priority, fmt, data) do { } while(0)
+#define Log3(priority, fmt, data1, data2) do { } while(0)
+#define Log4(priority, fmt, data1, data2, data3) do { } while(0)
+#define Log5(priority, fmt, data1, data2, data3, data4) do { } while(0)
+#define Log9(priority, fmt, data1, data2, data3, data4, data5, data6, data7, data8) do { } while(0)
+#endif
 
 int get_atr(enum atr_modulation modulation,
             const unsigned char *in, size_t inlen,
