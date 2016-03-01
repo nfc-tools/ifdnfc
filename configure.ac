@@ -26,11 +26,20 @@ PKG_PROG_PKG_CONFIG
 
 # Checks for libraries.
 PKG_CHECK_EXISTS([libnfc >= 1.6.0],
-                 [PKG_CHECK_MODULES([LIBNFC], [libnfc >= 1.3.9])],
-                 [AC_MSG_WARN([libnfc >= 1.3.9 not found by pkg-config])])
+                 [PKG_CHECK_MODULES([LIBNFC], [libnfc >=  1.6.0])],
+                 [AC_MSG_WARN([libnfc >= 1.6.0 not found by pkg-config])])
 PKG_CHECK_EXISTS([libpcsclite > 1.4.102],
-                 [PKG_CHECK_MODULES([PCSC], [libpcsclite > 1.4.102])],
-                 [AC_MSG_WARN([libpcsclite > 1.4.102 not found by pkg-config])])
+				 [PKG_CHECK_MODULES([PCSC], [libpcsclite > 1.4.102])],
+				 [AC_MSG_WARN([libpcsclite > 1.4.102 not found by pkg-config])
+				 case "$host" in
+					 *-*-darwin*)
+						SDKS_PATH="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs"
+						SDK_PATH="${SDK_PATH:-$SDKS_PATH/$(ls -1 ${SDKS_PATH} | sort -n -t. -k2 -r | head -1)}"
+						# and set the PC/SC include path
+						PCSC_CFLAGS="-I$SDK_PATH/System/Library/Frameworks/PCSC.framework/Versions/Current/Headers -DRESPONSECODE_DEFINED_IN_WINTYPES_H -I`pwd`/${top_srcdir}/MacOSX"
+						PCSC_LIBS="-framework PCSC"
+				 esac
+				 ])
 
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LIBS="$LIBS"
@@ -38,14 +47,17 @@ CPPFLAGS="$CPPFLAGS $PCSC_CFLAGS $LIBNFC_CFLAGS"
 LIBS="$LDFLAGS $PCSC_LIBS $LIBNFC_LIBS"
 AC_CHECK_HEADERS(winscard.h,,
         [ AC_MSG_ERROR([winscard.h not found, install libpcsclite > 1.4.102 or use ./configure PCSC_CFLAGS=...]) ])
+AC_CHECK_HEADERS([debuglog.h syslog.h ifdhandler.h])
+AC_CHECK_DECLS([TAG_IFD_POLLING_THREAD_WITH_TIMEOUT], [], [], [#include <ifdhandler..h>])
+AC_CHECK_DECLS([TAG_IFD_STOP_POLLING_THREAD], [], [], [#include <ifdhandler..h>])
 AC_MSG_CHECKING([for SCardEstablishContext])
 AC_TRY_LINK_FUNC(SCardEstablishContext, [ AC_MSG_RESULT([yes]) ],
         [ AC_MSG_ERROR([libpcsclite > 1.4.102 not found, use ./configure PCSC_LIBS=...]) ])
 AC_CHECK_HEADERS(nfc/nfc.h,,
-        [ AC_MSG_ERROR([nfc/nfc.h not found, install libnfc >= 1.3.9 or use ./configure LIBNFC_CFLAGS=...]) ])
+        [ AC_MSG_ERROR([nfc/nfc.h not found, install libnfc >= 1.6.0 or use ./configure LIBNFC_CFLAGS=...]) ])
 AC_MSG_CHECKING([for nfc_initiator_select_passive_target])
 AC_TRY_LINK_FUNC(nfc_initiator_select_passive_target, [ AC_MSG_RESULT([yes]) ],
-        [ AC_MSG_ERROR([libnfc >= 1.3.9 not found, use ./configure LIBNFC_LIBS=...]) ])
+        [ AC_MSG_ERROR([libnfc >= 1.6.0 not found, use ./configure LIBNFC_LIBS=...]) ])
 CPPFLAGS="$saved_CPPFLAGS"
 LIBS="$saved_LIBS"
 
@@ -60,7 +72,17 @@ if test "${usbdropdir}" = false ; then
 fi
 AC_DEFINE_UNQUOTED(PCSCLITE_HP_DROPDIR, "$usbdropdir", [directory containing USB drivers])
 if test "${usbdropdir}" = "" ; then
-	AC_MSG_ERROR([use --enable-usbdropdir=DIR])
+	case "$host" in
+		*-*-darwin*)
+			MAC_VERSION=$(sw_vers -productVersion | awk -F '.' '{print $1 * 1000 + $2}')
+			if [ 10011 -gt $MAC_VERSION ]; then
+				usbdropdir=/usr/local/libexec/SmartCardServices/drivers;
+			else
+				usbdropdir=/usr/libexec/SmartCardServices/drivers;
+			fi
+			;;
+		*) AC_MSG_ERROR([use --enable-usbdropdir=DIR])
+	esac
 fi
 
 # Checks for header files.

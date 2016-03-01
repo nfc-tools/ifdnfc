@@ -27,6 +27,12 @@
 
 #define MAX_DEVICE_COUNT 16
 
+#ifdef __APPLE__
+typedef int32_t LONG;
+typedef uint32_t DWORD;
+typedef uint8_t BYTE;
+#endif
+
 int
 main(int argc, char *argv[])
 {
